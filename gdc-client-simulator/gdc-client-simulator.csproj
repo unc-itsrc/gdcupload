@@ -3,10 +3,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RootNamespace>gdc_client_simulator</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommandLineParser" Version="2.4.3" />
+    <ProjectReference Include="..\upload2gdc\upload2gdc.csproj" />
   </ItemGroup>
 
 </Project>
