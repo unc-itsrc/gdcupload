@@ -53,7 +53,7 @@ namespace upload2gdc
         private static int NumberOfFilesToUpload = 0;
         private static string DataTransferTool = "gdcsim.exe";
         private static string GDCTokenFile;
-        private static int NumRetries = 3;
+        private static int NumRetries;
         private static bool UseSimulator;
 
         static void Main(string[] args)
@@ -66,6 +66,7 @@ namespace upload2gdc
                     UploadReportFileName = o.URFile;
                     NumberOfThreads = o.NumThreads;
                     UseSimulator = o.UseSimulator;
+                    NumRetries = o.Retries;
 
                     if (o.Verbose)
                     {
@@ -327,9 +328,9 @@ namespace upload2gdc
         public string TokenFile { get; set; }
 
         [Option("retries",
-            Default = "token.txt",
+            Default = 3,
             HelpText = "Path to GDC token file for API calls.")]
-        public string Retries { get; set; }
+        public int Retries { get; set; }
 
         [Option("sim",
             Default = true,
