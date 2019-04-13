@@ -39,13 +39,11 @@ namespace upload2gdc
         private static int NumberOfThreads; // number of simultaneously executing uploads; not really threads, but calling them threads anyway
 
         // The dictionary contains all necessary info for each sequence data file to be uploaded
-        // Id in SeqDataFilesQueue is the key to that item in the dictionary; the work queue 
-        // only holds the key for each element in the dictionary
+        // ConcurrentQueue contains dictionary Id's for all SeqFileInfo entities where the data files have been verified as present
         public static Dictionary<int, SeqFileInfo> SeqDataFiles = new Dictionary<int, SeqFileInfo>();
         private static ConcurrentQueue<int> SeqDataFilesQueue = new ConcurrentQueue<int>();
 
-        // Each thread gets its own log file - prevents file contention between threads
-        // using a dictionary to manage the set of log files
+        // Each thread gets its own log file - prevents file contention between threads, using a dictionary to manage the set of log files
         private static Dictionary<int, string> LogFileSet = new Dictionary<int, string>();
         private static readonly string LogFileBaseName = "logfile-";
         private static readonly string LogFileExtension = ".log";
@@ -77,20 +75,11 @@ namespace upload2gdc
 
 
             if (!Util.ProcessGDCMetaDataFile(GDCMetaDataFile))
-            {
-                Console.WriteLine("Error processing GDC metadata file.");
                 return;
-            }
 
             if (!Util.ProcessGDCUploadReport(UploadReportFileName))
-            {
-                Console.WriteLine("Error processing Upload Report from the GDC.");
                 return;
-            }
 
-
-            // go find the files and update each dictionary object with path to the data file
-            // report how many files could not be found, if > 0, offer option to stop or continue
             int numFilesNotFound = Util.GoFindDataFiles(DataFilesBaseLocation);
 
             if (numFilesNotFound == SeqDataFiles.Count())
@@ -107,17 +96,21 @@ namespace upload2gdc
                 Console.WriteLine($"All {SeqDataFiles.Count()} of the files to be uploaded were found");
 
 
-            // Load the work queue with the dictionary key of each data file in the dictionary
+            // Load the work queue with the dictionary key of each data file in the 
+            // dictionary where we have successfully located the file on disk
             foreach (KeyValuePair<int, SeqFileInfo> entry in SeqDataFiles)
             {
-                SeqDataFilesQueue.Enqueue(entry.Key);
+                if (entry.Value.ReadyForUpload)
+                    SeqDataFilesQueue.Enqueue(entry.Key);
             }
 
             NumberOfFilesToUpload = SeqDataFilesQueue.Count();
-            Console.WriteLine("            Number of work items: " + SeqDataFilesQueue.Count().ToString());
-            Console.WriteLine(" Number of work items per thread: " + (SeqDataFilesQueue.Count() / NumberOfThreads).ToString());
+            Console.WriteLine(" Number of items in Upload Report: " + SeqDataFiles.Count().ToString());
+            Console.WriteLine("             Number of work items: " + SeqDataFilesQueue.Count().ToString());
+            Console.WriteLine("  Number of work items per thread: " + (SeqDataFilesQueue.Count() / NumberOfThreads).ToString());
 
-            //  todo: show known state to user, allow to continue, cancel, or change NumberOfThreads
+            //  todo: show known state to user, allow to continue, cancel, or perhaps change NumberOfThreads
+
 
             Task[] tasks = new Task[NumberOfThreads];
             for (int thread = 0; thread < NumberOfThreads; thread++)
