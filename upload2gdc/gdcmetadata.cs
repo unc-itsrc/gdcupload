@@ -8,21 +8,9 @@ namespace upload2gdc
 {
     class GDCmetadata
     {
-        public static List<GDCjson> gdc_jsonObjects = new List<GDCjson>();    // list into which GDC json is deserialized 
-        // public static List<SUR> SURList = new List<SUR>();                    // list for submitted_unaligned_read objects
-
-        public static Dictionary<string, SUR> SURdictionary = new Dictionary<string, SUR>();
-
-        // public static List<ReadGroup> ReadGroupList = new List<ReadGroup>();  // list for read_group objects - do not need at this time
-
-
-        //public static SUR GetSUR(string submitterId)
-        //{
-        //    var temp = new SUR();
-        //    SURdictionary.TryGetValue(submitterId, out temp);
-        //    return temp;
-        //}
-
+        public static List<GDCjson> gdc_jsonObjects = new List<GDCjson>();                      // list into which GDC json is deserialized 
+        public static Dictionary<string, SUR> SURdictionary = new Dictionary<string, SUR>();    // container for submitted unaligned reads entities
+        // public static List<ReadGroup> ReadGroupList = new List<ReadGroup>();                 // list for read_group objects - do not need at this time
 
         public static bool LoadGDCJsonObjects(string inputString)
         {
@@ -52,9 +40,7 @@ namespace upload2gdc
                         project_id = temp1.project_id
                     };
 
-                    //SURList.Add(temp2);
                     SURdictionary.Add(temp1.submitter_id, temp2);
-
                 } 
                 // *** at this time we have no use for read_group objects, do not load them
                 //else if (gdcJsonOject.type == "read_group")
@@ -69,10 +55,10 @@ namespace upload2gdc
             return true;
         }
 
-    }  // end class GDCMetaData
+    }
 
 
-    public class SUR  // slimeed down version of submitted_unaligned_reads
+    public class SUR  // slimed down version of submitted_unaligned_reads
     {
         public string submitter_id { get; set; }
         public string file_name { get; set; }

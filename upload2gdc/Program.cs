@@ -29,6 +29,7 @@ namespace upload2gdc
         public string Submitter_id { get; set; }
         public string DataFileName { get; set; }
         public string DataFileLocation { get; set; }
+        public bool ReadyForUpload { get; set; }
         public long DataFileSize { get; set; }
         public int UploadAttempts { get; set; }
     }
@@ -40,7 +41,7 @@ namespace upload2gdc
         // The dictionary contains all necessary info for each sequence data file to be uploaded
         // Id in SeqDataFilesQueue is the key to that item in the dictionary; the work queue 
         // only holds the key for each element in the dictionary
-        private static Dictionary<int, SeqFileInfo> SeqDataFiles = new Dictionary<int, SeqFileInfo>();
+        public static Dictionary<int, SeqFileInfo> SeqDataFiles = new Dictionary<int, SeqFileInfo>();
         private static ConcurrentQueue<int> SeqDataFilesQueue = new ConcurrentQueue<int>();
 
         // Each thread gets its own log file - prevents file contention between threads
@@ -56,15 +57,14 @@ namespace upload2gdc
         private static string GDCTokenFile;
         private static int NumRetries;
         private static bool UseSimulator;
-        private static readonly bool TestMode = true;
+        private static readonly bool TestMode = false;
         private static string DataFilesBaseLocation;
 
         private static int NumberOfFilesToUpload;
 
         static void Main(string[] args)
         {
-            Parser.Default.ParseArguments<Options>(args)
-                .WithParsed<Options>(o =>
+            Parser.Default.ParseArguments<Options>(args).WithParsed<Options>(o =>
                 {
                     UploadReportFileName = o.URFile;
                     NumberOfThreads = o.NumThreads;
@@ -76,21 +76,35 @@ namespace upload2gdc
                 });
 
 
-            if (!ProcessGDCMetaDataFile(GDCMetaDataFile))
+            if (!Util.ProcessGDCMetaDataFile(GDCMetaDataFile))
             {
                 Console.WriteLine("Error processing GDC metadata file.");
                 return;
             }
 
-            if (!ProcessGDCUploadReport(UploadReportFileName))
+            if (!Util.ProcessGDCUploadReport(UploadReportFileName))
             {
                 Console.WriteLine("Error processing Upload Report from the GDC.");
                 return;
             }
 
 
-            // to do: go find the files and update each dictionary object with path to the data file
-            //        report how many files could not be found, if > 0, offer option to stop or continue
+            // go find the files and update each dictionary object with path to the data file
+            // report how many files could not be found, if > 0, offer option to stop or continue
+            int numFilesNotFound = Util.GoFindDataFiles(DataFilesBaseLocation);
+
+            if (numFilesNotFound == SeqDataFiles.Count())
+            {
+                Console.WriteLine($"None of the {SeqDataFiles.Count()} files to be uploaded were found in the staging location {DataFilesBaseLocation}");
+                if (!TestMode)
+                    return;
+            }
+            else if (numFilesNotFound > 0)
+            {
+                Console.WriteLine("*** numFilesNotFound: " + numFilesNotFound.ToString());
+            }
+            else
+                Console.WriteLine($"All {SeqDataFiles.Count()} of the files to be uploaded were found");
 
 
             // Load the work queue with the dictionary key of each data file in the dictionary
@@ -232,7 +246,7 @@ namespace upload2gdc
             if (uploadSuccess == -1)  // upload was not successful
             {
                 sb.Append(Environment.NewLine);
-                string failBaseText = "---" + "\t" + logDateTime + "\t" + "File-NOT-UPLOADED:" + "\t" + SeqDataFile.Id + "\t" + SeqDataFile.Submitter_id + "\t";
+                string failBaseText = "***" + "\t" + logDateTime + "\t" + "File-NOT-UPLOADED:" + "\t" + SeqDataFile.Id + "\t" + SeqDataFile.Submitter_id + "\t";
 
                 if (stdOut.IndexOf(knownErrorMessage1) != -1)
                 {
@@ -258,11 +272,20 @@ namespace upload2gdc
                     SeqDataFile.UploadAttempts++;
                     SeqDataFiles.Add(workId, SeqDataFile);
                     SeqDataFilesQueue.Enqueue(workId);
-                    Thread.Sleep(250);
+                    Thread.Sleep(200);
 
-                    string tempTxt = "Re-queued: " + SeqDataFile.UploadAttempts.ToString() + " of " + NumRetries.ToString();
-                    sb.Append("---" + "\t" + logDateTime + "\t" + "Re-queuing" + "\t" + SeqDataFile.Id + "\t" + SeqDataFile.Submitter_id + "\t" + tempTxt);
-                    sb.Append(Environment.NewLine + "stdErr = " + stdErr);
+                    sb.Append("---");
+                    sb.Append("\t" + logDateTime);
+                    sb.Append("\t" + "Re-queuing");
+                    sb.Append("\t" + SeqDataFile.Id);
+                    sb.Append("\t" + SeqDataFile.Submitter_id);
+                    sb.Append("\t" + "Re-queued: ");
+                    sb.Append(SeqDataFile.UploadAttempts.ToString());
+                    sb.Append(" of ");
+                    sb.Append(NumRetries.ToString());
+                    sb.Append(Environment.NewLine);
+
+                    sb.Append("stdErr = " + stdErr);
                 }
             }
 
@@ -274,91 +297,5 @@ namespace upload2gdc
             return true;
         }
 
-        
-        public static bool ProcessGDCMetaDataFile(string fileName)
-        {
-            if (!File.Exists(fileName))
-            {
-                Console.WriteLine("File not found, GDC Metadata File: " + fileName);
-                return false;
-            }
-
-            string jsonstring = "";
-
-            try
-            {
-                jsonstring = File.ReadAllText(fileName);
-            }
-            catch
-            {
-                Console.WriteLine("Exception reading GDC Metadata File: " + fileName);
-                return false;
-            }
-
-            if (!GDCmetadata.LoadGDCJsonObjects(jsonstring))
-            {
-                Console.WriteLine("Error loading GDC Metadata File: " + fileName);
-                return false;
-            }
-
-            return true;
-        }
-
-        public static bool ProcessGDCUploadReport(string fileName)
-        {
-            if (!File.Exists(fileName))
-            {
-                Console.WriteLine("File not found, Upload Report file from GDC: " + fileName);
-                return false;
-            }
-
-            int counter = 0;
-            string line;
-
-            try
-            {
-                using (StreamReader file = new StreamReader(fileName))
-                {
-                    while ((line = file.ReadLine()) != null)
-                    {
-                        string[] parts = line.Split('\t');
-                        if (parts.Length > 1)
-                        {
-                            if (parts[2] == "submitted_unaligned_reads")
-                            {
-                                counter++;
-                                SeqFileInfo newDataFile = new SeqFileInfo
-                                {
-                                    Id = parts[0],
-                                    Related_case = parts[1],
-                                    EType = parts[2],
-                                    Submitter_id = parts[4]
-                                };
-
-                                var tempSUR = new SUR();
-                                if (GDCmetadata.SURdictionary.TryGetValue(parts[4], out tempSUR))
-                                {
-                                    newDataFile.DataFileName = tempSUR.file_name;
-                                    newDataFile.DataFileSize = tempSUR.file_size;
-                                }
-
-                                SeqDataFiles.Add(counter, newDataFile);
-                            }
-                        }
-                    }
-                    file.Close();
-                }
-            }
-            catch
-            {
-                Console.WriteLine("Exception while processing upload report from the gdc: " + fileName);
-                Console.WriteLine("Counter = " + counter.ToString());
-                return false;
-            }
-            return true;
-        }
-
-
     }
-
 }
