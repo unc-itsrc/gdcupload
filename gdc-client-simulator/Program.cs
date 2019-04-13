@@ -4,8 +4,9 @@ using System.Threading;
 namespace gdc_client_simulator
 {
     // this program simulates the GDC Data Transfer tool to facilitate development of sequence data upload managers
+    // simulator returns more file upload "failures" than in reality for dev/test purposes
     // https://gdc.cancer.gov/access-data/gdc-data-transfer-tool
-    //
+
     class Program
     {
         public static bool uploadSuccessful;

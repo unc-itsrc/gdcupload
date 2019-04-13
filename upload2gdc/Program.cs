@@ -1,16 +1,26 @@
-﻿using CommandLine;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using CommandLine;
 
 namespace upload2gdc
 {
+    //  This is a wrapper for the GDC Data Transfer Tool used to manage uploads
+    //  of genomic sequence data files to the National Cancer Institute
+    //  known to work on rc-dm2.its.unc.edu -- data mover node with .net core sdk installed
+    //  requires that the data files are accessible via a file path, which is set via commandline argument
+    // 
+    //  USAGE: 
+    //  dotnet uoload2gdc.dll --help
+    //  dotnet upload2gdc.dll --ur ~/gdc-upload-report.tsv --md ~/gdc-metadata-file.json --files /proj/seq/tracseq/delivery --token ~/token.txt
+
     class SeqFileInfo
     {
         public string Id { get; set; }
@@ -19,47 +29,40 @@ namespace upload2gdc
         public string Submitter_id { get; set; }
         public string DataFileName { get; set; }
         public string DataFileLocation { get; set; }
+        public long DataFileSize { get; set; }
         public int UploadAttempts { get; set; }
     }
 
-    //class UploadConfig
-    //{
-    //    public string TokenFile { get; set; }
-    //    public int NumRetries { get; set; }
-    //    public string DataTransferTool { get; set; }
-    //    public bool UseSimulator { get; set; }
-    //}
-
-    //  USAGE: 
-    //  dotnet upload2gdc.dll gdc-upload-report.tsv
-    // 
-    //
-
-
     class Program
     {
-        private static string UploadReportFileName; // this file comes from the GDC after successful metadata upload via the portal
-        private static int NumberOfThreads; // number of simultaneously executing uploads
+        private static int NumberOfThreads; // number of simultaneously executing uploads; not really threads, but calling them threads anyway
 
-        // the dictionary contains all necessary info for each sequence data file to be uploaded
-        // Id in SeqDataFilesQue is the key to element item in the dictionary
+        // The dictionary contains all necessary info for each sequence data file to be uploaded
+        // Id in SeqDataFilesQueue is the key to that item in the dictionary; the work queue 
+        // only holds the key for each element in the dictionary
         private static Dictionary<int, SeqFileInfo> SeqDataFiles = new Dictionary<int, SeqFileInfo>();
         private static ConcurrentQueue<int> SeqDataFilesQueue = new ConcurrentQueue<int>();
 
-        // each thread gets its own log file - prevents file contention between threads
+        // Each thread gets its own log file - prevents file contention between threads
+        // using a dictionary to manage the set of log files
         private static Dictionary<int, string> LogFileSet = new Dictionary<int, string>();
         private static readonly string LogFileBaseName = "logfile-";
         private static readonly string LogFileExtension = ".log";
-        private static int NumberOfFilesToUpload = 0;
+
+        // configuration stuff - need to figure out how to pass a json file with these config values
+        private static string UploadReportFileName; // this file comes from the GDC after successful metadata upload via the portal
+        private static string GDCMetaDataFile;      // this is the json file with gdcmetadata used to create RG and SUR objectsin the submission portal
         private static string DataTransferTool = "gdcsim.exe";
         private static string GDCTokenFile;
         private static int NumRetries;
         private static bool UseSimulator;
+        private static readonly bool TestMode = true;
+        private static string DataFilesBaseLocation;
+
+        private static int NumberOfFilesToUpload;
 
         static void Main(string[] args)
         {
-            Parser.Default.ParseArguments<Options>(args);
-
             Parser.Default.ParseArguments<Options>(args)
                 .WithParsed<Options>(o =>
                 {
@@ -67,40 +70,40 @@ namespace upload2gdc
                     NumberOfThreads = o.NumThreads;
                     UseSimulator = o.UseSimulator;
                     NumRetries = o.Retries;
-
-                    if (o.Verbose)
-                    {
-                        Console.WriteLine($"Verbose output enabled. Current Arguments: -v {o.Verbose}");
-                        //Console.WriteLine($"Verbose output enabled. Current Arguments: -ur {o.URFile}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Current Arguments: -v {o.Verbose}");
-                        Console.WriteLine("Quick Start Example!");
-                    }
+                    GDCTokenFile = o.TokenFile;
+                    DataFilesBaseLocation = o.FilesBaseLocation;
+                    GDCMetaDataFile = o.GDCMetadataFile;
                 });
 
-            Console.WriteLine($"Upload Report File from GDC: -ur { UploadReportFileName }");
 
+            if (!ProcessGDCMetaDataFile(GDCMetaDataFile))
+            {
+                Console.WriteLine("Error processing GDC metadata file.");
+                return;
+            }
 
             if (!ProcessGDCUploadReport(UploadReportFileName))
             {
-                Console.WriteLine("Error processing Upload Rerport from the GDC");
+                Console.WriteLine("Error processing Upload Report from the GDC.");
                 return;
             }
 
 
-            // Load the work queue with the id of each sequence file in the dictionary
-            // Id is the index into the Dictionary to get the full lSeqFileInfo details for the file to be uplaoded
+            // to do: go find the files and update each dictionary object with path to the data file
+            //        report how many files could not be found, if > 0, offer option to stop or continue
+
+
+            // Load the work queue with the dictionary key of each data file in the dictionary
             foreach (KeyValuePair<int, SeqFileInfo> entry in SeqDataFiles)
             {
                 SeqDataFilesQueue.Enqueue(entry.Key);
             }
 
             NumberOfFilesToUpload = SeqDataFilesQueue.Count();
-
             Console.WriteLine("            Number of work items: " + SeqDataFilesQueue.Count().ToString());
             Console.WriteLine(" Number of work items per thread: " + (SeqDataFilesQueue.Count() / NumberOfThreads).ToString());
+
+            //  todo: show known state to user, allow to continue, cancel, or change NumberOfThreads
 
             Task[] tasks = new Task[NumberOfThreads];
             for (int thread = 0; thread < NumberOfThreads; thread++)
@@ -120,14 +123,16 @@ namespace upload2gdc
                             UploadSequenceData(WorkId, remainingItems);
                         }
                     } while (!SeqDataFilesQueue.IsEmpty);
-
                     Thread.Sleep(250);
-                    // Console.WriteLine("Exiting thread " + Task.CurrentId.ToString());
                 });
-                Thread.Sleep(1000);  // wait just a bit between thread spinups
+                Thread.Sleep(500);  // wait just a bit between thread spinups
             }
 
             Task.WaitAll(tasks);
+
+            // todo: process log files, provide number of files successfully and unsuccessfully uploaded
+            //       expired time, bytes transferred
+
         }
 
 
@@ -160,52 +165,69 @@ namespace upload2gdc
             else
                 cmdLineArgs = ("upload -t " + GDCTokenFile + " " + SeqDataFile.Id);
 
-            sb.Append(DateTime.Now.ToString("g") + "  uploading " + SeqDataFile.Id);
-            sb.Append(" on thread " + Task.CurrentId.ToString());
-            sb.Append(" with " + remainingItems.ToString() + " work items remaining.");
+            sb.Append("Begin:" + "\t");
+            sb.Append(startTime + "\t");
+            sb.Append(SeqDataFile.Id + "\t");
+            sb.Append(SeqDataFile.Submitter_id);
+            sb.Append(Environment.NewLine);
 
-            string logRecord = sb.ToString();
-            sb.Clear();
+            sb.Append("uploading " + SeqDataFile.Id);
+            sb.Append(SeqDataFile.Id);
+            sb.Append(" on thread ");
+            sb.Append(Task.CurrentId.ToString());
+            sb.Append(" with ");
+            sb.Append(remainingItems.ToString());
+            sb.Append(" work items remaining.");
+            sb.Append(Environment.NewLine);
 
-            sb.Append("Begin: " + SeqDataFile.Id + "\t" + SeqDataFile.Submitter_id + "\t" + startTime);
-            sb.Append(logRecord);
-            sb.Append(Environment.NewLine + "cmd = " + DataTransferTool + " " + cmdLineArgs);
+            sb.Append("cmd = " + DataTransferTool + " " + cmdLineArgs);
             File.AppendAllText(logFile, sb.ToString());
             sb.Clear();
 
             string stdOut = "";
             string stdErr = "";
 
-            using (var proc = new Process())
+            if (TestMode)
             {
-                ProcessStartInfo procStartInfo = new ProcessStartInfo();
-                procStartInfo.FileName = DataTransferTool; 
-                procStartInfo.Arguments = cmdLineArgs;
-                procStartInfo.WorkingDirectory = SeqDataFile.DataFileLocation;   // gdc-client requires this
-                procStartInfo.CreateNoWindow = true;
-                procStartInfo.UseShellExecute = false;
-                procStartInfo.RedirectStandardOutput = true;
-                procStartInfo.RedirectStandardInput = true;
-                procStartInfo.RedirectStandardError = true;
+                Console.WriteLine(DataTransferTool + " " + cmdLineArgs + "; filename: " + SeqDataFile.DataFileName);
+                stdOut = "Multipart upload finished for file " + SeqDataFile.Id + Environment.NewLine;
+            }
+            else
+            {
+                using (var proc = new Process())
+                {
+                    ProcessStartInfo procStartInfo = new ProcessStartInfo();
+                    procStartInfo.FileName = DataTransferTool;
+                    procStartInfo.Arguments = cmdLineArgs;
+                    procStartInfo.WorkingDirectory = SeqDataFile.DataFileLocation;   // gdc-client requires this
+                    procStartInfo.CreateNoWindow = true;
+                    procStartInfo.UseShellExecute = false;
+                    procStartInfo.RedirectStandardOutput = true;
+                    procStartInfo.RedirectStandardInput = true;
+                    procStartInfo.RedirectStandardError = true;
 
-                proc.StartInfo = procStartInfo;
-                proc.Start();
+                    proc.StartInfo = procStartInfo;
+                    proc.Start();
 
-                stdOut = proc.StandardOutput.ReadToEnd();
-                stdErr = proc.StandardError.ReadToEnd();
+                    stdOut = proc.StandardOutput.ReadToEnd();
+                    stdErr = proc.StandardError.ReadToEnd();
 
-                proc.WaitForExit();
-
+                    proc.WaitForExit();
+                }
             }
 
-            string knownErrorMessage1 = "File in validated state, initiate_multipart not allowed";
-            string knownErrorMessage2 = "File with id " + SeqDataFile.Id + " not found";
             string endTime = DateTime.Now.ToString("g");
 
-            int uploadSuccess = stdOut.IndexOf("Multipart upload finished for file " + SeqDataFile.Id);
+            // two common error messages to check for:
+            string knownErrorMessage1 = "File in validated state, initiate_multipart not allowed";  // file already exists at GDC
+            string knownErrorMessage2 = "File with id " + SeqDataFile.Id + " not found";            // local file not found, gdc xfer tool likely not executed from within directory that contains the file
+
+            // if file upload was successful, this substring will be found in stdOut
+            int uploadSuccess = stdOut.IndexOf("Multipart upload finished for file " + SeqDataFile.Submitter_id);
+
             sb.Clear();
             bool keepWorking = true;
-            string logDateTime = DateTime.Now.ToString("yyyyMMddHHmmss");
+            string logDateTime = DateTime.Now.ToString("g");
 
             if (uploadSuccess == -1)  // upload was not successful
             {
@@ -230,7 +252,8 @@ namespace upload2gdc
 
                 if ((SeqDataFile.UploadAttempts < NumRetries) && keepWorking)
                 {
-                    // need to remove item from dictionay SeqDataFiles, then add it back to the dictionary with updated UploadAttempts
+                    // need to remove item from dictionay SeqDataFiles, 
+                    // then add it back to the dictionary with updated value for UploadAttempts
                     SeqDataFiles.Remove(workId);
                     SeqDataFile.UploadAttempts++;
                     SeqDataFiles.Add(workId, SeqDataFile);
@@ -241,16 +264,45 @@ namespace upload2gdc
                     sb.Append("---" + "\t" + logDateTime + "\t" + "Re-queuing" + "\t" + SeqDataFile.Id + "\t" + SeqDataFile.Submitter_id + "\t" + tempTxt);
                     sb.Append(Environment.NewLine + "stdErr = " + stdErr);
                 }
-
             }
 
-            sb.Append(Environment.NewLine + stdOut);
-            sb.Append("End: " + endTime + "; " + SeqDataFile.Submitter_id + Environment.NewLine + Environment.NewLine);
+            sb.Append(Environment.NewLine);
+            sb.Append(stdOut);
+            sb.Append("End: " + endTime + Environment.NewLine + Environment.NewLine);
             File.AppendAllText(logFile, sb.ToString());
 
             return true;
         }
 
+        
+        public static bool ProcessGDCMetaDataFile(string fileName)
+        {
+            if (!File.Exists(fileName))
+            {
+                Console.WriteLine("File not found, GDC Metadata File: " + fileName);
+                return false;
+            }
+
+            string jsonstring = "";
+
+            try
+            {
+                jsonstring = File.ReadAllText(fileName);
+            }
+            catch
+            {
+                Console.WriteLine("Exception reading GDC Metadata File: " + fileName);
+                return false;
+            }
+
+            if (!GDCmetadata.LoadGDCJsonObjects(jsonstring))
+            {
+                Console.WriteLine("Error loading GDC Metadata File: " + fileName);
+                return false;
+            }
+
+            return true;
+        }
 
         public static bool ProcessGDCUploadReport(string fileName)
         {
@@ -275,14 +327,22 @@ namespace upload2gdc
                             if (parts[2] == "submitted_unaligned_reads")
                             {
                                 counter++;
-                                SeqFileInfo temp = new SeqFileInfo
+                                SeqFileInfo newDataFile = new SeqFileInfo
                                 {
                                     Id = parts[0],
                                     Related_case = parts[1],
                                     EType = parts[2],
                                     Submitter_id = parts[4]
                                 };
-                                SeqDataFiles.Add(counter, temp);
+
+                                var tempSUR = new SUR();
+                                if (GDCmetadata.SURdictionary.TryGetValue(parts[4], out tempSUR))
+                                {
+                                    newDataFile.DataFileName = tempSUR.file_name;
+                                    newDataFile.DataFileSize = tempSUR.file_size;
+                                }
+
+                                SeqDataFiles.Add(counter, newDataFile);
                             }
                         }
                     }
@@ -295,47 +355,9 @@ namespace upload2gdc
                 Console.WriteLine("Counter = " + counter.ToString());
                 return false;
             }
-
             return true;
         }
 
-
-
-    }
-
-    class Options
-    {
-        // https://www.nuget.org/packages/CommandLineParser/
-
-        [Option(
-            Default = false,
-            HelpText = "Prints all messages to standard output.")]
-        public bool Verbose { get; set; }
-
-        [Option("ur",
-            Default = "not set",
-            HelpText = "Path to file that is the Upload Report from GDC.")]
-        public string URFile { get; set; }
-
-        [Option("threads",
-            Default = 10,
-            HelpText = "Number of simultaneous file uploads.")]
-        public int NumThreads { get; set; }
-
-        [Option("token",
-            Default = "token.txt",
-            HelpText = "Path to GDC token file for API calls.")]
-        public string TokenFile { get; set; }
-
-        [Option("retries",
-            Default = 3,
-            HelpText = "Path to GDC token file for API calls.")]
-        public int Retries { get; set; }
-
-        [Option("sim",
-            Default = true,
-            HelpText = "Use gdcsim.exe instead of the gdc data transfer tool?")]
-        public bool UseSimulator { get; set; }
 
     }
 
