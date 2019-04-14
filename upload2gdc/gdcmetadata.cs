@@ -6,6 +6,15 @@ using System.Text;
 
 namespace upload2gdc
 {
+    public class SUR  // slimed down version of submitted_unaligned_reads
+    {
+        public string submitter_id { get; set; }
+        public string file_name { get; set; }
+        public long file_size { get; set; }
+        public string md5sum { get; set; }
+        public string project_id { get; set; }
+    }
+
     class GDCmetadata
     {
         public static List<GDCjson> gdc_jsonObjects = new List<GDCjson>();                      // list into which GDC json is deserialized 
@@ -55,16 +64,6 @@ namespace upload2gdc
             return true;
         }
 
-    }
-
-
-    public class SUR  // slimed down version of submitted_unaligned_reads
-    {
-        public string submitter_id { get; set; }
-        public string file_name { get; set; }
-        public long file_size { get; set; }
-        public string md5sum { get; set; }
-        public string project_id { get; set; }
     }
 
 

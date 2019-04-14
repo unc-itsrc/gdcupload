@@ -27,7 +27,7 @@ namespace upload2gdc
         public string GDCMetadataFile { get; set; }
 
         [Option("files",
-            Default = "L:\\tracseq\\delivery",   // for datamover node:  /proj/seq/tracseq/delivery
+            Default = "L:\\tracseq\\delivery",   // on datamover node, set this to:  /proj/seq/tracseq/delivery
             Required = false,
             HelpText = "Path to base location of sequence data files.")]
         public string FilesBaseLocation { get; set; }
@@ -49,6 +49,18 @@ namespace upload2gdc
             Required = false,
             HelpText = "Max number of times to try upload before failing.")]
         public int Retries { get; set; }
+
+        [Option("log",
+            Default = "",
+            Required = false,
+            HelpText = "Path to store and read log files.")]
+        public string LogFileLocation { get; set; }
+
+        [Option("dtt",
+            Default = "gdc-client",   // this is the setting for rc-dm2.its.unc.edu
+            Required = false,
+            HelpText = "Path to store the GDC data transfer tool executable.")]
+        public string DataTransferTool { get; set; }
 
         [Option("sim",
             Default = true,

@@ -15,7 +15,7 @@ namespace upload2gdc
     //  This is a wrapper for the GDC Data Transfer Tool used to manage uploads
     //  of genomic sequence data files to the National Cancer Institute
     //  known to work on rc-dm2.its.unc.edu -- data mover node with .net core sdk installed
-    //  requires that the data files are accessible via a file path, which is set via commandline argument
+    //  requires that the data files are accessible via a file path.
     // 
     //  USAGE: 
     //  dotnet uoload2gdc.dll --help
@@ -47,18 +47,19 @@ namespace upload2gdc
         private static Dictionary<int, string> LogFileSet = new Dictionary<int, string>();
         private static readonly string LogFileBaseName = "logfile-";
         private static readonly string LogFileExtension = ".log";
+        private static string LogFileLocation;
 
         // configuration stuff - need to figure out how to pass a json file with these config values
         private static string UploadReportFileName; // this file comes from the GDC after successful metadata upload via the portal
         private static string GDCMetaDataFile;      // this is the json file with gdcmetadata used to create RG and SUR objectsin the submission portal
-        private static string DataTransferTool = "gdcsim.exe";
+        private static string DataTransferTool;
         private static string GDCTokenFile;
         private static int NumRetries;
         private static bool UseSimulator;
-        private static readonly bool TestMode = false;
         private static string DataFilesBaseLocation;
 
         private static int NumberOfFilesToUpload;
+        private static readonly bool TestMode = false;
 
         static void Main(string[] args)
         {
@@ -71,6 +72,7 @@ namespace upload2gdc
                     GDCTokenFile = o.TokenFile;
                     DataFilesBaseLocation = o.FilesBaseLocation;
                     GDCMetaDataFile = o.GDCMetadataFile;
+                    DataTransferTool = o.DataTransferTool;
                 });
 
 
@@ -123,7 +125,7 @@ namespace upload2gdc
                     {
                         if (SeqDataFilesQueue.TryDequeue(out int WorkId))
                         {
-                            int remainingItems = SeqDataFilesQueue.Count();
+                            int remainingItems = SeqDataFilesQueue.Count() + 1;
                             float percentComplete = 1 - (((float)remainingItems + 1) / NumberOfFilesToUpload);
                             string pc = String.Format("  Percent complete: {0:P0}", percentComplete);
                             Console.WriteLine($"Starting item {WorkId} on thread {Task.CurrentId}; Remaining items:{remainingItems}; {pc}");
@@ -150,13 +152,13 @@ namespace upload2gdc
 
             if (!LogFileSet.TryGetValue((int)Task.CurrentId, out string logFile))
             {
-                File.AppendAllText(logFile, ("Unable to get logfile name from LogFileSet " + workId.ToString()) + Environment.NewLine);
+                //File.AppendAllText(logFile, ("Unable to get logfile name from LogFileSet " + workId.ToString()) + Environment.NewLine);
                 return false;
             }
 
             if (!SeqDataFiles.TryGetValue(workId, out SeqDataFile))
             {
-                File.AppendAllText(logFile, ("Unable to SeqFileInfo object out of SeqDataFiles " + workId.ToString()) + Environment.NewLine);
+                File.AppendAllText(logFile, ("Unable to get SeqFileInfo object out of SeqDataFiles " + workId.ToString()) + Environment.NewLine);
                 return false;
             }
 
@@ -197,7 +199,9 @@ namespace upload2gdc
             if (TestMode)
             {
                 Console.WriteLine(DataTransferTool + " " + cmdLineArgs + "; filename: " + SeqDataFile.DataFileName);
-                stdOut = "Multipart upload finished for file " + SeqDataFile.Id + Environment.NewLine;
+                
+                // fake output of gdc tool indicating upload finished successfully
+                stdOut = "Multipart upload finished for file " + SeqDataFile.Id + Environment.NewLine;  
             }
             else
             {
@@ -206,7 +210,10 @@ namespace upload2gdc
                     ProcessStartInfo procStartInfo = new ProcessStartInfo();
                     procStartInfo.FileName = DataTransferTool;
                     procStartInfo.Arguments = cmdLineArgs;
-                    procStartInfo.WorkingDirectory = SeqDataFile.DataFileLocation;   // gdc-client requires this
+
+                    // gdc-client requires execution of the xfer tool from withing the directory where the data file resides
+                    procStartInfo.WorkingDirectory = SeqDataFile.DataFileLocation;
+
                     procStartInfo.CreateNoWindow = true;
                     procStartInfo.UseShellExecute = false;
                     procStartInfo.RedirectStandardOutput = true;
@@ -239,7 +246,11 @@ namespace upload2gdc
             if (uploadSuccess == -1)  // upload was not successful
             {
                 sb.Append(Environment.NewLine);
-                string failBaseText = "***" + "\t" + logDateTime + "\t" + "File-NOT-UPLOADED:" + "\t" + SeqDataFile.Id + "\t" + SeqDataFile.Submitter_id + "\t";
+                string failBaseText = "***" + "\t" + logDateTime 
+                       + "\t" + "File-NOT-UPLOADED:" 
+                       + "\t" + SeqDataFile.Id 
+                       + "\t" + SeqDataFile.Submitter_id 
+                       + "\t";
 
                 if (stdOut.IndexOf(knownErrorMessage1) != -1)
                 {
@@ -259,11 +270,11 @@ namespace upload2gdc
 
                 if ((SeqDataFile.UploadAttempts < NumRetries) && keepWorking)
                 {
-                    // need to remove item from dictionay SeqDataFiles, 
-                    // then add it back to the dictionary with updated value for UploadAttempts
                     SeqDataFiles.Remove(workId);
+
                     SeqDataFile.UploadAttempts++;
                     SeqDataFiles.Add(workId, SeqDataFile);
+
                     SeqDataFilesQueue.Enqueue(workId);
                     Thread.Sleep(200);
 
@@ -286,6 +297,7 @@ namespace upload2gdc
             sb.Append(stdOut);
             sb.Append("End: " + endTime + Environment.NewLine + Environment.NewLine);
             File.AppendAllText(logFile, sb.ToString());
+            sb.Clear();
 
             return true;
         }

@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace upload2gdc
 {
     class Util
     {
-        
-
         public static int GoFindDataFiles(string basePath)
         {
             int numFilesNotFound = 0;
@@ -136,5 +135,86 @@ namespace upload2gdc
             return true;
         }
 
+
+        public static void CheckLogFiles(string dirLocation)
+        {
+            string logfiledirmask = "*.log";
+
+            string[] files = Directory.GetFiles(dirLocation, logfiledirmask, SearchOption.TopDirectoryOnly);
+
+            List<string> CompletedUUIDs = new List<string>();
+            List<string> FailedUUIDs = new List<string>();
+            int TotalRequeues = 0;
+
+            if (files.Length > 0)
+            {
+                string line = "";
+                foreach (string filename in files)
+                {
+                    using (StreamReader file = new StreamReader(filename))
+                    {
+                        while ((line = file.ReadLine()) != null)
+                        {
+                            if (line.Contains("Multipart upload finished for file"))
+                            {
+                                string[] parts = line.Split();
+                                CompletedUUIDs.Add(parts[5]);
+                            }
+                            else if (line.Contains("File-NOT-UPLOADED:"))
+                            {
+                                string[] parts = line.Split();
+                                FailedUUIDs.Add(parts[5]);
+                            }
+                            else if (line.Contains("Re-queued:"))
+                            {
+                                TotalRequeues++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            StringBuilder sb = new StringBuilder();
+
+            sb.Append($"   Log File Scan Results: {DateTime.Now.ToString("g")} ");
+            sb.Append(Environment.NewLine);
+            sb.Append($"Total number of requeues: {TotalRequeues}");
+            sb.Append(Environment.NewLine + Environment.NewLine);
+
+            sb.Append($"*** Successfully uploaded: {CompletedUUIDs.Count()} ");
+            sb.Append(Environment.NewLine);
+            foreach (string item in CompletedUUIDs)
+            {
+                sb.Append(item);
+                sb.Append(Environment.NewLine);
+            }
+
+            sb.Append(Environment.NewLine + Environment.NewLine);
+            sb.Append($"*** Failed to upload: {FailedUUIDs.Count()} " + Environment.NewLine);
+            foreach (string item in FailedUUIDs)
+            {
+                sb.Append(item);
+                sb.Append(Environment.NewLine);
+            }
+
+            string resultsFileName = "logScan-" + DateTime.Now.ToString("yyyyddhhmmss") + ".log";
+
+            try
+            {
+                File.WriteAllText(Path.Combine(dirLocation, resultsFileName), sb.ToString());
+            }
+            catch {
+                Console.WriteLine("Exception writing results from log file scan.");
+            }
+
+            sb.Clear();
+            Console.WriteLine($" Successfully uploaded: {CompletedUUIDs.Count()}" );
+            Console.WriteLine($"          Faild upload: {FailedUUIDs.Count()}");
+            Console.WriteLine($"        Total Requeues: {TotalRequeues}");
+        }
+
+
+
     }
 }
+
