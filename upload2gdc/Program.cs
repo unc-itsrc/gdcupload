@@ -60,6 +60,7 @@ namespace upload2gdc
         private static int NumRetries;
         private static bool UseSimulator;
         private static bool OnlyScanLogFiles;
+        public static bool OnlyCheck4DataFiles;
         private static string DataFilesBaseLocation;
 
         private static int NumberOfFilesToUpload;
@@ -81,17 +82,19 @@ namespace upload2gdc
                     DataTransferTool = o.DataTransferTool;
                     OnlyScanLogFiles = o.OnlyScanLogFiles;
                     LogFileLocationFromConfig = o.LogFileLocation;
+                    OnlyCheck4DataFiles = o.OnlyCheck4DataFiles;
                 });
 
-            LogFileLocation = Util.SetLocation4LogFiles(LogFileLocationFromConfig);
+
+            if (!OnlyCheck4DataFiles) // no log files to be written when only checking for data files
+                LogFileLocation = Util.SetLocation4LogFiles(LogFileLocationFromConfig);
+
             if (OnlyScanLogFiles)
             {
                 Console.WriteLine($"Examining *.log files in this location: {LogFileLocation}");
                 Util.CheckLogFiles(LogFileLocation);
                 return;  // skip everything else
             }
-
-            Console.WriteLine($"Log files will be written here: {LogFileLocation}");
 
             if (!Util.ProcessGDCMetaDataFile(GDCMetaDataFile))
                 return;
@@ -101,18 +104,18 @@ namespace upload2gdc
 
             int numFilesNotFound = Util.GoFindDataFiles(DataFilesBaseLocation);
 
-            if (numFilesNotFound == SeqDataFiles.Count())
+            if (numFilesNotFound == SeqDataFiles.Count() && !TestMode)
             {
                 Console.WriteLine($"None of the {SeqDataFiles.Count()} files to be uploaded were found in the staging location {DataFilesBaseLocation}");
-                if (!TestMode)
-                    return;
+                return;
             }
-            else if (numFilesNotFound > 0)
-            {
-                Console.WriteLine($"*** {numFilesNotFound} files not found out of an expected {SeqDataFiles.Count()} files." );
-            }
-            else
-                Console.WriteLine($"All {SeqDataFiles.Count()} of the files to be uploaded were found");
+
+            Util.WriteResultsOfFileScanToScreen(OnlyCheck4DataFiles, numFilesNotFound);
+
+            if (OnlyCheck4DataFiles)
+                return;
+
+            Console.WriteLine($"Log files will be written here: {LogFileLocation}");
 
 
             // Load the work queue with the dictionary key of each data file in the 
@@ -290,10 +293,8 @@ namespace upload2gdc
 
                 if ((SeqDataFile.UploadAttempts < NumRetries) && keepWorking)
                 {
-                    SeqDataFiles.Remove(workId);
-
                     SeqDataFile.UploadAttempts++;
-                    SeqDataFiles.Add(workId, SeqDataFile);
+                    SeqDataFiles[workId] = SeqDataFile;
 
                     SeqDataFilesQueue.Enqueue(workId);
                     Thread.Sleep(200);
@@ -309,7 +310,8 @@ namespace upload2gdc
                     sb.Append(NumRetries.ToString());
                     sb.Append(Environment.NewLine);
 
-                    sb.Append("stdErr = " + stdErr);
+                    sb.Append("stdErr = ");
+                    sb.Append(stdErr);
                 }
             }
 

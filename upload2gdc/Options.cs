@@ -62,6 +62,12 @@ namespace upload2gdc
             HelpText = "Set this option to true to only scan a set of logfiles.")]
         public bool OnlyScanLogFiles { get; set; }
 
+        [Option("filesonly",
+            Default = false,
+            Required = false,
+            HelpText = "Set this option to true to only look for and report on data file availability.")]
+        public bool OnlyCheck4DataFiles { get; set; }
+
         [Option("dtt",
             Default = "gdc-client",   // this is the setting for rc-dm2.its.unc.edu
             Required = false,
@@ -73,6 +79,7 @@ namespace upload2gdc
             Required = false,
             HelpText = "Use gdcsim.exe instead of the gdc data transfer tool?")]
         public bool UseSimulator { get; set; }
+
 
     }
 }

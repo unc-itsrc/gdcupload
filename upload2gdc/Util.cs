@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace upload2gdc
 {
@@ -11,9 +12,6 @@ namespace upload2gdc
 
         public static int GoFindDataFiles(string basePath)
         {
-            int numFilesNotFound = 0;
-            Dictionary<int, SeqFileInfo> newSeqDataFiles = new Dictionary<int, SeqFileInfo>();
-
             // since we cannot modify a Dictionary item while iterating over the dictionary,
             // copy the keys to a List and iterate over that instead
             List<int> ListOfKeys = new List<int>();
@@ -21,6 +19,8 @@ namespace upload2gdc
             {
                 ListOfKeys.Add(dataFile.Key);
             }
+
+            int numFilesNotFound = 0;
 
             foreach (int key in ListOfKeys)
             {
@@ -50,6 +50,54 @@ namespace upload2gdc
             }
 
             return numFilesNotFound;
+        }
+
+        public static void WriteResultsOfFileScanToScreen(bool filesOnly, int numFilesNotFound)
+        {
+            Console.Write(Environment.NewLine);
+            if (numFilesNotFound == 0)
+            {
+                Console.WriteLine($"All {Program.SeqDataFiles.Count()} of the files to be uploaded were found" + Environment.NewLine);
+
+                Console.WriteLine("Press any key within 3 seconds to show list of file names");
+                bool writeDetails = Task.Factory.StartNew(() => Console.ReadKey()).Wait(TimeSpan.FromSeconds(3.0));
+
+                if (writeDetails)
+                {
+                    Console.WriteLine(Environment.NewLine);
+                    Console.WriteLine("The following files *were found*:");
+                    foreach (var item in Program.SeqDataFiles)
+                        Console.WriteLine(item.Value.DataFileName);
+                }
+                return;
+            }
+            else
+            {
+                Console.WriteLine($"*** {numFilesNotFound} files not found out of an expected {Program.SeqDataFiles.Count()} files.");
+                Console.Write(Environment.NewLine);
+
+                if (filesOnly) // provide an id for each that failed. make easy to copy/paste into excel or email.
+                {
+                    Console.WriteLine("The following files were NOT found: ");
+
+                    foreach (var item in Program.SeqDataFiles)
+                        if (!item.Value.ReadyForUpload)
+                            Console.WriteLine(item.Value.DataFileName);
+
+                    Console.WriteLine(Environment.NewLine);
+                    Console.WriteLine("Press any key within 3 seconds to show files that *were found*");
+                    bool writeDetails = Task.Factory.StartNew(() => Console.ReadKey()).Wait(TimeSpan.FromSeconds(3.0));
+
+                    if (writeDetails)
+                    {
+                        Console.WriteLine(Environment.NewLine);
+                        Console.WriteLine("The following files *were found*:");
+                        foreach (var item in Program.SeqDataFiles)
+                            if (item.Value.ReadyForUpload)
+                                Console.WriteLine(item.Value.DataFileName);
+                    }
+                }
+            }
         }
 
         public static bool ProcessGDCMetaDataFile(string fileName)
@@ -83,6 +131,25 @@ namespace upload2gdc
 
         public static bool ProcessGDCUploadReport(string fileName)
         {
+            // if we are only looking for data files, then we do not need the GDC Upload Rerpot (and likely do not have it)
+            // simply load Program.SeqDataFiles with all file names found in the GDC MetaData File.
+            if (Program.OnlyCheck4DataFiles)
+            {
+                int j = 0;
+                foreach (var item in GDCmetadata.SURdictionary)
+                {
+                    j++;
+                    SeqFileInfo newDataFile = new SeqFileInfo
+                    {
+                        DataFileName = item.Value.file_name,
+                        Submitter_id = item.Value.submitter_id
+                    };
+                    Program.SeqDataFiles.Add(j, newDataFile);
+                }
+                return true;
+            }
+
+
             if (!File.Exists(fileName))
             {
                 Console.WriteLine("File not found, Upload Report file from GDC: " + fileName);
@@ -179,7 +246,7 @@ namespace upload2gdc
             StringBuilder header4ConsoleAndLogFile = new StringBuilder();
             string atLeastOneFailure = "";
             if (FailedUUIDs.Count > 0)
-                atLeastOneFailure = "  *****";
+                atLeastOneFailure = " *****";
 
             header4ConsoleAndLogFile.Append($"{DateTime.Now.ToString("g")}: Results of scanning {files.Length} log files in directory: {dirLocation}");
             header4ConsoleAndLogFile.Append(Environment.NewLine);
@@ -193,7 +260,7 @@ namespace upload2gdc
 
             if (CompletedUUIDs.Count > 0)
             {
-                sb.Append("*** Success:");
+                sb.Append("--- Success:");
                 sb.Append(Environment.NewLine);
                 foreach (string item in CompletedUUIDs)
                 {
