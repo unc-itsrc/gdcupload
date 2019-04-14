@@ -12,10 +12,11 @@ using CommandLine;
 
 namespace upload2gdc
 {
-    //  This is a wrapper for the GDC Data Transfer Tool used to manage uploads
-    //  of genomic sequence data files to the National Cancer Institute
-    //  known to work on rc-dm2.its.unc.edu -- data mover node with .net core sdk installed
-    //  requires that the data files are accessible via a file path.
+    //  This Win/Linux/Mac console application is a wrapper for the GDC Data Transfer Tool (gdc-client). 
+    //  It manages uploads of genomic sequence data files to the National Cancer Institute.
+    //  It requires that the data files are accessible via a file path from the OS upon which it runs.
+    //  It is known to work on rc-dm2.its.unc.edu, an ITS-RC datamover node with the .net core sdk installed.
+    //  https://gdc.cancer.gov/access-data/gdc-data-transfer-tool
     // 
     //  USAGE: 
     //  dotnet uoload2gdc.dll --help
@@ -41,8 +42,8 @@ namespace upload2gdc
         public static Dictionary<int, SeqFileInfo> SeqDataFiles = new Dictionary<int, SeqFileInfo>();
         private static ConcurrentQueue<int> SeqDataFilesQueue = new ConcurrentQueue<int>();
 
-        private static int NumberOfThreads; // number of simultaneously executing uploads; 
-                                            // these threads are actually multithreaded processes but calling them threads anyway
+        private static int NumberOfThreads; // number of simultaneously executing uploads
+                                            // these are actually multithreaded processes but calling them threads anyway
 
         // Each thread gets its own log file - prevents file contention between threads
         // using a dictionary to manage the set of log files with the TaskId of the process (thread) as the dictionary key
@@ -136,7 +137,9 @@ namespace upload2gdc
             {
                 tasks[thread] = Task.Run(() =>
                 {
-                    Console.WriteLine("Spinning up thread: " + thread.ToString());
+                    if (TestMode)
+                        Console.WriteLine("Spinning up thread: " + thread.ToString());
+
                     string threadSpecificLogFile = Path.Combine(LogFileLocation, (LogFileBaseName + Task.CurrentId.ToString() + LogFileExtension));
                     LogFileSet.Add((int)Task.CurrentId, threadSpecificLogFile);
                     do
@@ -145,7 +148,7 @@ namespace upload2gdc
                         {
                             int remainingItems = SeqDataFilesQueue.Count() + 1;
                             float percentComplete = 1 - (((float)remainingItems + 1) / NumberOfFilesToUpload);
-                            string pc = String.Format("  Percent complete: {0:P0}", percentComplete);
+                            string pc = String.Format("  Percent complete: {0:P1}", percentComplete);
                             Console.WriteLine($"Starting item {WorkId} on thread {Task.CurrentId}; Remaining items:{remainingItems}; {pc}");
                             UploadSequenceData(WorkId, remainingItems);
                         }
@@ -228,7 +231,7 @@ namespace upload2gdc
                     procStartInfo.FileName = DataTransferTool;
                     procStartInfo.Arguments = cmdLineArgs;
 
-                    // gdc-client requires execution of the xfer tool from withing the directory where the data file resides
+                    // the gdc-client DTT requires that it be executed from within the directory where the data file resides
                     procStartInfo.WorkingDirectory = SeqDataFile.DataFileLocation;
 
                     procStartInfo.CreateNoWindow = true;
@@ -249,7 +252,7 @@ namespace upload2gdc
 
             string endTime = DateTime.Now.ToString("g");
 
-            // two common error messages to check for:
+            // two common error messages to look for:
             string knownErrorMessage1 = "File in validated state, initiate_multipart not allowed";  // file already exists at GDC
             string knownErrorMessage2 = "File with id " + SeqDataFile.Id + " not found";            // local file not found, gdc xfer tool likely not executed from within directory that contains the file
 

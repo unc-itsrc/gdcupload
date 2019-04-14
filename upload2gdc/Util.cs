@@ -185,7 +185,7 @@ namespace upload2gdc
             header4ConsoleAndLogFile.Append(Environment.NewLine);
             header4ConsoleAndLogFile.Append(Environment.NewLine);
             header4ConsoleAndLogFile.Append($" Total number of requeues: {TotalRequeues}" + Environment.NewLine);
-            header4ConsoleAndLogFile.Append($"      Successfull uploads: {CompletedUUIDs.Count()} " + Environment.NewLine);
+            header4ConsoleAndLogFile.Append($"       Successful uploads: {CompletedUUIDs.Count()} " + Environment.NewLine);
             header4ConsoleAndLogFile.Append($"           Failed uploads: {FailedUUIDs.Count()} {atLeastOneFailure}");
             header4ConsoleAndLogFile.Append(Environment.NewLine + Environment.NewLine);
 
