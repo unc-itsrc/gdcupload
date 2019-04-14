@@ -36,18 +36,20 @@ namespace upload2gdc
 
     class Program
     {
-        private static int NumberOfThreads; // number of simultaneously executing uploads; not really threads, but calling them threads anyway
-
-        // The dictionary contains all necessary info for each sequence data file to be uploaded
+        // The dictionary contains all needed details about each sequence data file
         // ConcurrentQueue contains dictionary Id's for all SeqFileInfo entities where the data files have been verified as present
         public static Dictionary<int, SeqFileInfo> SeqDataFiles = new Dictionary<int, SeqFileInfo>();
         private static ConcurrentQueue<int> SeqDataFilesQueue = new ConcurrentQueue<int>();
 
-        // Each thread gets its own log file - prevents file contention between threads, using a dictionary to manage the set of log files
+        private static int NumberOfThreads; // number of simultaneously executing uploads; 
+                                            // these threads are actually multithreaded processes but calling them threads anyway
+
+        // Each thread gets its own log file - prevents file contention between threads
+        // using a dictionary to manage the set of log files with the TaskId of the process (thread) as the dictionary key
         private static Dictionary<int, string> LogFileSet = new Dictionary<int, string>();
-        private static readonly string LogFileBaseName = "logfile-";
+        private static readonly string LogFileBaseName = "gdclogfile-";
         private static readonly string LogFileExtension = ".log";
-        private static string LogFileLocation;
+        public static string LogFileLocation;
 
         // configuration stuff - need to figure out how to pass a json file with these config values
         private static string UploadReportFileName; // this file comes from the GDC after successful metadata upload via the portal
@@ -56,6 +58,7 @@ namespace upload2gdc
         private static string GDCTokenFile;
         private static int NumRetries;
         private static bool UseSimulator;
+        private static bool OnlyScanLogFiles;
         private static string DataFilesBaseLocation;
 
         private static int NumberOfFilesToUpload;
@@ -63,6 +66,8 @@ namespace upload2gdc
 
         static void Main(string[] args)
         {
+            string LogFileLocationFromConfig = "";
+
             Parser.Default.ParseArguments<Options>(args).WithParsed<Options>(o =>
                 {
                     UploadReportFileName = o.URFile;
@@ -73,8 +78,19 @@ namespace upload2gdc
                     DataFilesBaseLocation = o.FilesBaseLocation;
                     GDCMetaDataFile = o.GDCMetadataFile;
                     DataTransferTool = o.DataTransferTool;
+                    OnlyScanLogFiles = o.OnlyScanLogFiles;
+                    LogFileLocationFromConfig = o.LogFileLocation;
                 });
 
+            LogFileLocation = Util.SetLocation4LogFiles(LogFileLocationFromConfig);
+            if (OnlyScanLogFiles)
+            {
+                Console.WriteLine($"Examining *.log files in this location: {LogFileLocation}");
+                Util.CheckLogFiles(LogFileLocation);
+                return;  // skip everything else
+            }
+
+            Console.WriteLine($"Log files will be written here: {LogFileLocation}");
 
             if (!Util.ProcessGDCMetaDataFile(GDCMetaDataFile))
                 return;
@@ -92,7 +108,7 @@ namespace upload2gdc
             }
             else if (numFilesNotFound > 0)
             {
-                Console.WriteLine("*** numFilesNotFound: " + numFilesNotFound.ToString());
+                Console.WriteLine($"*** {numFilesNotFound} files not found out of an expected {SeqDataFiles.Count()} files." );
             }
             else
                 Console.WriteLine($"All {SeqDataFiles.Count()} of the files to be uploaded were found");
@@ -111,6 +127,7 @@ namespace upload2gdc
             Console.WriteLine("             Number of work items: " + SeqDataFilesQueue.Count().ToString());
             Console.WriteLine("  Number of work items per thread: " + (SeqDataFilesQueue.Count() / NumberOfThreads).ToString());
 
+            
             //  todo: show known state to user, allow to continue, cancel, or perhaps change NumberOfThreads
 
 
@@ -120,7 +137,8 @@ namespace upload2gdc
                 tasks[thread] = Task.Run(() =>
                 {
                     Console.WriteLine("Spinning up thread: " + thread.ToString());
-                    LogFileSet.Add((int)Task.CurrentId, (LogFileBaseName + Task.CurrentId.ToString() + LogFileExtension));
+                    string threadSpecificLogFile = Path.Combine(LogFileLocation, (LogFileBaseName + Task.CurrentId.ToString() + LogFileExtension));
+                    LogFileSet.Add((int)Task.CurrentId, threadSpecificLogFile);
                     do
                     {
                         if (SeqDataFilesQueue.TryDequeue(out int WorkId))
@@ -132,15 +150,14 @@ namespace upload2gdc
                             UploadSequenceData(WorkId, remainingItems);
                         }
                     } while (!SeqDataFilesQueue.IsEmpty);
-                    Thread.Sleep(250);
+                    Thread.Sleep(500);
                 });
                 Thread.Sleep(500);  // wait just a bit between thread spinups
             }
 
             Task.WaitAll(tasks);
 
-            // todo: process log files, provide number of files successfully and unsuccessfully uploaded
-            //       expired time, bytes transferred
+            Util.CheckLogFiles(LogFileLocation);
 
         }
 

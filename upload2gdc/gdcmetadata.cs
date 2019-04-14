@@ -51,7 +51,7 @@ namespace upload2gdc
 
                     SURdictionary.Add(temp1.submitter_id, temp2);
                 } 
-                // *** at this time we have no use for read_group objects, do not load them
+                // *** at this time we have no use for read_group objects, so do not load them
                 //else if (gdcJsonOject.type == "read_group")
                 //{
                 //    ReadGroup temp1 = new ReadGroup();
@@ -66,6 +66,10 @@ namespace upload2gdc
 
     }
 
+
+
+    // these next 5 classes are based on GDC entities: 
+    // https://docs.gdc.cancer.gov/Data_Dictionary/viewer/
 
     public class GDCjson
     {

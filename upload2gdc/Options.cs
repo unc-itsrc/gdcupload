@@ -16,13 +16,13 @@ namespace upload2gdc
 
         [Option("ur",
             Default = "",
-            Required = true,
+            Required = false,
             HelpText = "Path to file that is the Upload Report from GDC.")]
         public string URFile { get; set; }
 
         [Option("md",
             Default = "",
-            Required = true,
+            Required = false,
             HelpText = "Path to file that is the GDC json metadata associated with the upload report from GDC.")]
         public string GDCMetadataFile { get; set; }
 
@@ -55,6 +55,12 @@ namespace upload2gdc
             Required = false,
             HelpText = "Path to store and read log files.")]
         public string LogFileLocation { get; set; }
+
+        [Option("logsonly",
+            Default = false,
+            Required = false,
+            HelpText = "Set this option to true to only scan a set of logfiles.")]
+        public bool OnlyScanLogFiles { get; set; }
 
         [Option("dtt",
             Default = "gdc-client",   // this is the setting for rc-dm2.its.unc.edu

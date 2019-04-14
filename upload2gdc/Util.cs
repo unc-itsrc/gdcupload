@@ -8,6 +8,7 @@ namespace upload2gdc
 {
     class Util
     {
+
         public static int GoFindDataFiles(string basePath)
         {
             int numFilesNotFound = 0;
@@ -175,29 +176,45 @@ namespace upload2gdc
             }
 
             StringBuilder sb = new StringBuilder();
+            StringBuilder header4ConsoleAndLogFile = new StringBuilder();
+            string atLeastOneFailure = "";
+            if (FailedUUIDs.Count > 0)
+                atLeastOneFailure = "  *****";
 
-            sb.Append($"   Log File Scan Results: {DateTime.Now.ToString("g")} ");
-            sb.Append(Environment.NewLine);
-            sb.Append($"Total number of requeues: {TotalRequeues}");
-            sb.Append(Environment.NewLine + Environment.NewLine);
+            header4ConsoleAndLogFile.Append($"{DateTime.Now.ToString("g")}: Results of scanning {files.Length} log files in directory: {dirLocation}");
+            header4ConsoleAndLogFile.Append(Environment.NewLine);
+            header4ConsoleAndLogFile.Append(Environment.NewLine);
+            header4ConsoleAndLogFile.Append($" Total number of requeues: {TotalRequeues}" + Environment.NewLine);
+            header4ConsoleAndLogFile.Append($"      Successfull uploads: {CompletedUUIDs.Count()} " + Environment.NewLine);
+            header4ConsoleAndLogFile.Append($"           Failed uploads: {FailedUUIDs.Count()} {atLeastOneFailure}");
+            header4ConsoleAndLogFile.Append(Environment.NewLine + Environment.NewLine);
 
-            sb.Append($"*** Successfully uploaded: {CompletedUUIDs.Count()} ");
-            sb.Append(Environment.NewLine);
-            foreach (string item in CompletedUUIDs)
+            sb.Append(header4ConsoleAndLogFile.ToString());
+
+            if (CompletedUUIDs.Count > 0)
             {
-                sb.Append(item);
+                sb.Append("*** Success:");
                 sb.Append(Environment.NewLine);
+                foreach (string item in CompletedUUIDs)
+                {
+                    sb.Append(item);
+                    sb.Append(Environment.NewLine);
+                }
             }
 
-            sb.Append(Environment.NewLine + Environment.NewLine);
-            sb.Append($"*** Failed to upload: {FailedUUIDs.Count()} " + Environment.NewLine);
-            foreach (string item in FailedUUIDs)
+            if (FailedUUIDs.Count > 0)
             {
-                sb.Append(item);
+                sb.Append(Environment.NewLine + Environment.NewLine);
+                sb.Append("*** Failed:");
                 sb.Append(Environment.NewLine);
+                foreach (string item in FailedUUIDs)
+                {
+                    sb.Append(item);
+                    sb.Append(Environment.NewLine);
+                }
             }
 
-            string resultsFileName = "logScan-" + DateTime.Now.ToString("yyyyddhhmmss") + ".log";
+            string resultsFileName = "logScan-" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".log";
 
             try
             {
@@ -207,12 +224,43 @@ namespace upload2gdc
                 Console.WriteLine("Exception writing results from log file scan.");
             }
 
-            sb.Clear();
-            Console.WriteLine($" Successfully uploaded: {CompletedUUIDs.Count()}" );
-            Console.WriteLine($"          Faild upload: {FailedUUIDs.Count()}");
-            Console.WriteLine($"        Total Requeues: {TotalRequeues}");
+            Console.WriteLine(Environment.NewLine);
+            Console.Write(header4ConsoleAndLogFile.ToString());
         }
 
+
+        public static string SetLocation4LogFiles(string fileLocation)
+        {
+            if (Directory.Exists(fileLocation))  // best case, operator specified the location and it exists
+            {
+                string newLogFileDir = Path.Combine(fileLocation, ("gdc-" + DateTime.Now.ToString("yyyyMMddHHmmss")));
+                Directory.CreateDirectory(newLogFileDir);
+                return newLogFileDir; 
+            }
+            else
+            {
+                if (fileLocation.Length > 0)
+                    Console.WriteLine($"Specified Log file location not found: {fileLocation}");
+            }
+
+            string homeDir = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+
+            // if we can't find a home directory, just use the current directory
+            if (!Directory.Exists(homeDir))
+                return Directory.GetCurrentDirectory();
+
+
+            // create a new logfile directory within homedir that is specific to each run
+            string homeDirLogs = Path.Combine(homeDir, "Logs");
+
+            if (!Directory.Exists(homeDirLogs))
+                Directory.CreateDirectory(homeDirLogs);
+
+            string runSpecificLogDir = Path.Combine(homeDirLogs, ("gdc-" + DateTime.Now.ToString("yyyyMMddHHmmss")));
+            Directory.CreateDirectory(runSpecificLogDir);
+
+            return runSpecificLogDir;
+        }
 
 
     }
