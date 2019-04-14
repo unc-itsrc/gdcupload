@@ -124,9 +124,9 @@ namespace upload2gdc
             }
 
             NumberOfFilesToUpload = SeqDataFilesQueue.Count();
-            Console.WriteLine(" Number of items in Upload Report: " + SeqDataFiles.Count().ToString());
-            Console.WriteLine("             Number of work items: " + SeqDataFilesQueue.Count().ToString());
-            Console.WriteLine("  Number of work items per thread: " + (SeqDataFilesQueue.Count() / NumberOfThreads).ToString());
+            Console.WriteLine($" Number of items in Upload Report: {SeqDataFiles.Count()}");
+            Console.WriteLine($"             Number of work items: {SeqDataFilesQueue.Count()}");
+            Console.WriteLine($"  Number of work items per thread: {(SeqDataFilesQueue.Count() / NumberOfThreads)}");
 
             
             //  todo: show known state to user, allow to continue, cancel, or perhaps change NumberOfThreads
@@ -172,13 +172,13 @@ namespace upload2gdc
 
             if (!LogFileSet.TryGetValue((int)Task.CurrentId, out string logFile))
             {
-                //File.AppendAllText(logFile, ("Unable to get logfile name from LogFileSet " + workId.ToString()) + Environment.NewLine);
+                Console.WriteLine($"Unable to get logfile name from LogFileSet on TaskId {workId}");
                 return false;
             }
 
             if (!SeqDataFiles.TryGetValue(workId, out SeqDataFile))
             {
-                File.AppendAllText(logFile, ("Unable to get SeqFileInfo object out of SeqDataFiles " + workId.ToString()) + Environment.NewLine);
+                File.AppendAllText(logFile, ($"Unable to get SeqFileInfo object out of SeqDataFiles {workId}" + Environment.NewLine));
                 return false;
             }
 
