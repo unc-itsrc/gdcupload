@@ -259,8 +259,17 @@ namespace upload2gdc
             string knownErrorMessage1 = "File in validated state, initiate_multipart not allowed";  // file already exists at GDC
             string knownErrorMessage2 = "File with id " + SeqDataFile.Id + " not found";            // local file not found, gdc xfer tool likely not executed from within directory that contains the file
 
-            // if file upload was successful, this substring will be found in stdOut
-            int uploadSuccess = stdOut.IndexOf("Multipart upload finished for file " + SeqDataFile.Submitter_id);
+
+            // for larger files (ie not smallRNA) gdc-client operates in a multipart multithreaded mode
+            // for smaller files (smallRNA), gdc-client does a simple upload, which emits different output
+            int t1 = stdOut.IndexOf("File size smaller than part size");
+            int t2 = stdOut.IndexOf("do simple upload");
+
+            int uploadSuccess;
+            if (t1 != -1 && t2 != -1) // the gdc-client operated in simple mode due to file size being smaller than the gdc part size
+                uploadSuccess = stdOut.IndexOf("Upload finished for file " + SeqDataFile.Submitter_id);
+            else
+                uploadSuccess = stdOut.IndexOf("Multipart upload finished for file " + SeqDataFile.Submitter_id);
 
             sb.Clear();
             bool keepWorking = true;

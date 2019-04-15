@@ -318,7 +318,7 @@ namespace upload2gdc
 
 
             // create a new logfile directory within homedir that is specific to each run
-            string homeDirLogs = Path.Combine(homeDir, "Logs");
+            string homeDirLogs = Path.Combine(homeDir, "upload2gdc-logs");
 
             if (!Directory.Exists(homeDirLogs))
                 Directory.CreateDirectory(homeDirLogs);

@@ -59,7 +59,7 @@ namespace upload2gdc
         [Option("logsonly",
             Default = false,
             Required = false,
-            HelpText = "Set this option to true to only scan a set of logfiles.")]
+            HelpText = "Set this option to true to only scan a set of logfiles and report on success/failed uploads.")]
         public bool OnlyScanLogFiles { get; set; }
 
         [Option("filesonly",
