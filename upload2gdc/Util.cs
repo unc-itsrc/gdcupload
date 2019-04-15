@@ -10,6 +10,9 @@ namespace upload2gdc
     class Util
     {
 
+        private static bool DebugMode = true;
+        private static string DebugLogFileName = "debug.log";
+
         public static int GoFindDataFiles(string basePath)
         {
             // since we cannot modify a Dictionary item while iterating over the dictionary,
@@ -47,6 +50,24 @@ namespace upload2gdc
                 {
                     numFilesNotFound++;
                 }
+            }
+
+            if (DebugMode)
+            {
+                StringBuilder dbg = new StringBuilder();
+                dbg.Append("*** Go Find Data Files:");
+                dbg.Append(Environment.NewLine);
+                foreach (var item in Program.SeqDataFiles)
+                {
+                    dbg.Append(item.Value.Submitter_id);
+                    dbg.Append("\\t");
+                    dbg.Append(item.Value.ReadyForUpload);
+                    dbg.Append("\\t");
+                    dbg.Append(item.Value.DataFileLocation);
+                    dbg.Append("\\t");
+                    dbg.Append(item.Value.DataFileName);
+                }
+                File.WriteAllText(Path.Combine(Program.LogFileLocation, DebugLogFileName), dbg.ToString());
             }
 
             return numFilesNotFound;
