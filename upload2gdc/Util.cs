@@ -67,7 +67,9 @@ namespace upload2gdc
                     dbg.Append("\\t");
                     dbg.Append(item.Value.DataFileName);
                 }
-                File.WriteAllText(Path.Combine(Program.LogFileLocation, DebugLogFileName), dbg.ToString());
+                string df = Path.Combine(Program.LogFileLocation, DebugLogFileName);
+                Console.WriteLine($"writing debug info to {DebugLogFileName} in directory {df}");
+                File.WriteAllText(df, dbg.ToString());
             }
 
             return numFilesNotFound;

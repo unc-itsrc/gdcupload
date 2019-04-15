@@ -203,13 +203,15 @@ namespace upload2gdc
             sb.Append(SeqDataFile.Submitter_id);
             sb.Append(Environment.NewLine);
 
-            sb.Append("uploading " + SeqDataFile.Id);
+            sb.Append("uploading ");
             sb.Append(SeqDataFile.Id);
             sb.Append(" on thread ");
             sb.Append(Task.CurrentId.ToString());
             sb.Append(" with ");
             sb.Append(remainingItems.ToString());
             sb.Append(" work items remaining.");
+            sb.Append("WorkingDirectory = ");
+            sb.Append(SeqDataFile.DataFileLocation);
             sb.Append(Environment.NewLine);
 
             sb.Append("cmd = " + DataTransferTool + " " + cmdLineArgs);
