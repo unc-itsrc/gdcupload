@@ -64,7 +64,8 @@ namespace upload2gdc
         private static string DataFilesBaseLocation;
 
         private static int NumberOfFilesToUpload;
-        private static readonly bool TestMode = false;
+        public static readonly bool TestMode = false;
+
 
         static void Main(string[] args)
         {
@@ -93,30 +94,29 @@ namespace upload2gdc
             {
                 Console.WriteLine($"Examining *.log files in this location: {LogFileLocation}");
                 Util.CheckLogFiles(LogFileLocation);
-                return;  // skip everything else
+                return;     // end program
             }
 
             if (!Util.ProcessGDCMetaDataFile(GDCMetaDataFile))
-                return;
+                return;     // end program
 
             if (!Util.ProcessGDCUploadReport(UploadReportFileName))
-                return;
+                return;     // end program
 
             int numFilesNotFound = Util.GoFindDataFiles(DataFilesBaseLocation);
 
             if (numFilesNotFound == SeqDataFiles.Count() && !TestMode)
             {
                 Console.WriteLine($"None of the {SeqDataFiles.Count()} files to be uploaded were found in the staging location {DataFilesBaseLocation}");
-                return;
+                return;     // end program
             }
 
             Util.WriteResultsOfFileScanToScreen(OnlyCheck4DataFiles, numFilesNotFound);
 
             if (OnlyCheck4DataFiles)
-                return;
+                return;     // end program
 
             Console.WriteLine($"Log files will be written here: {LogFileLocation}");
-
 
             // Load the work queue with the dictionary key of each data file in the 
             // dictionary where we have successfully located the file on disk
@@ -131,7 +131,7 @@ namespace upload2gdc
             Console.WriteLine($"             Number of work items: {SeqDataFilesQueue.Count()}");
             Console.WriteLine($"  Number of work items per thread: {(SeqDataFilesQueue.Count() / NumberOfThreads)}");
 
-            
+
             //  todo: show known state to user, allow to continue, cancel, or perhaps change NumberOfThreads
 
 
@@ -149,16 +149,14 @@ namespace upload2gdc
                     {
                         if (SeqDataFilesQueue.TryDequeue(out int WorkId))
                         {
-                            int remainingItems = SeqDataFilesQueue.Count() + 1;
-                            float percentComplete = 1 - (((float)remainingItems + 1) / NumberOfFilesToUpload);
-                            string pc = String.Format("  Percent complete: {0:P1}", percentComplete);
-                            Console.WriteLine($"Starting item {WorkId} on thread {Task.CurrentId}; Remaining items:{remainingItems}; {pc}");
+                            int remainingItems = SeqDataFilesQueue.Count();
+                            Console.WriteLine($"Starting item {WorkId} on thread {Task.CurrentId}; Remaining items:{remainingItems}");
                             UploadSequenceData(WorkId, remainingItems);
                         }
                     } while (!SeqDataFilesQueue.IsEmpty);
                     Thread.Sleep(500);
                 });
-                Thread.Sleep(500);  // wait just a bit between thread spinups
+                Thread.Sleep(1500);  // wait just a bit between thread spinups
             }
 
             Task.WaitAll(tasks);
@@ -189,13 +187,26 @@ namespace upload2gdc
             string startTime = DateTime.Now.ToString("g");
             StringBuilder sb = new StringBuilder();
 
-            if (UseSimulator)
+            //if (UseSimulator)
+            //{
+            //    cmdLineArgs = SeqDataFile.Submitter_id + " " + "fast";
+            //    DataTransferTool = "gdcsim.exe";
+            //}
+            //else
+            //  cmdLineArgs = ("upload -t " + GDCTokenFile + " " + SeqDataFile.Id);
+
+            // gdc-client reverts to a "simple mode" when the file size is less than 1GB, however
+            // it does not exit cleanly in this mode. So force all xfers to be multi-part by setting 
+            // the upload-part-size to a value smaller than the file size.
+            string uploadPartSize = ""; 
+            long defaultPartSize = 1000000000;
+            if (SeqDataFile.DataFileSize < defaultPartSize)
             {
-                cmdLineArgs = SeqDataFile.Submitter_id + " " + "fast";
-                DataTransferTool = "gdcsim.exe";
+                long newPartSize = (long)(SeqDataFile.DataFileSize * 0.8);
+                uploadPartSize = " --upload-part-size " + newPartSize.ToString();
             }
-            else
-                cmdLineArgs = ("upload -t " + GDCTokenFile + " " + SeqDataFile.Id);
+
+            cmdLineArgs = ("upload -t " + GDCTokenFile + " " + SeqDataFile.Id + uploadPartSize);
 
             sb.Append("Begin:" + "\t");
             sb.Append(startTime + "\t");
@@ -210,11 +221,21 @@ namespace upload2gdc
             sb.Append(" with ");
             sb.Append(remainingItems.ToString());
             sb.Append(" work items remaining.");
+            sb.Append(Environment.NewLine);
             sb.Append("WorkingDirectory = ");
             sb.Append(SeqDataFile.DataFileLocation);
+
+            sb.Append(Environment.NewLine);
+            sb.Append(SeqDataFile.DataFileName);
+            sb.Append("\t");
+            sb.Append(SeqDataFile.DataFileSize);
+            sb.Append("\t");
+            sb.Append("partsize: " + uploadPartSize);
             sb.Append(Environment.NewLine);
 
+            sb.Append(Environment.NewLine);
             sb.Append("cmd = " + DataTransferTool + " " + cmdLineArgs);
+
             File.AppendAllText(logFile, sb.ToString());
             sb.Clear();
 
@@ -224,8 +245,7 @@ namespace upload2gdc
             if (TestMode)
             {
                 Console.WriteLine(DataTransferTool + " " + cmdLineArgs + "; filename: " + SeqDataFile.DataFileName);
-                
-                // fake output of gdc tool indicating upload finished successfully
+                // fake the output of a gdc-client run indicating upload finished successfully
                 stdOut = "Multipart upload finished for file " + SeqDataFile.Id + Environment.NewLine;  
             }
             else
@@ -237,6 +257,7 @@ namespace upload2gdc
                     procStartInfo.Arguments = cmdLineArgs;
 
                     // the gdc-client DTT requires that it be executed from within the directory where the data file resides
+                    // actually, with newer 1.4 version you can set --path path and it seems to work
                     procStartInfo.WorkingDirectory = SeqDataFile.DataFileLocation;
 
                     procStartInfo.CreateNoWindow = true;
@@ -261,17 +282,7 @@ namespace upload2gdc
             string knownErrorMessage1 = "File in validated state, initiate_multipart not allowed";  // file already exists at GDC
             string knownErrorMessage2 = "File with id " + SeqDataFile.Id + " not found";            // local file not found, gdc xfer tool likely not executed from within directory that contains the file
 
-
-            // for larger files (ie not smallRNA) gdc-client operates in a multipart multithreaded mode
-            // for smaller files (smallRNA), gdc-client does a simple upload, which emits different output
-            int t1 = stdOut.IndexOf("File size smaller than part size");
-            int t2 = stdOut.IndexOf("do simple upload");
-
-            int uploadSuccess;
-            if (t1 != -1 && t2 != -1) // the gdc-client operated in simple mode due to file size being smaller than the gdc part size
-                uploadSuccess = stdOut.IndexOf("Upload finished for file " + SeqDataFile.Submitter_id);
-            else
-                uploadSuccess = stdOut.IndexOf("Multipart upload finished for file " + SeqDataFile.Submitter_id);
+            int uploadSuccess = stdOut.IndexOf("Multipart upload finished for file " + SeqDataFile.Id);
 
             sb.Clear();
             bool keepWorking = true;
@@ -320,9 +331,6 @@ namespace upload2gdc
                     sb.Append(" of ");
                     sb.Append(NumRetries.ToString());
                     sb.Append(Environment.NewLine);
-
-                    sb.Append("stdErr = ");
-                    sb.Append(stdErr);
                 }
             }
 

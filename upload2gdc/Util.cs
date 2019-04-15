@@ -9,10 +9,6 @@ namespace upload2gdc
 {
     class Util
     {
-
-        private static bool DebugMode = true;
-        private static string DebugLogFileName = "debug.log";
-
         public static int GoFindDataFiles(string basePath)
         {
             // since we cannot modify a Dictionary item while iterating over the dictionary,
@@ -52,26 +48,6 @@ namespace upload2gdc
                 }
             }
 
-            if (DebugMode)
-            {
-                StringBuilder dbg = new StringBuilder();
-                dbg.Append("*** Go Find Data Files:");
-                dbg.Append(Environment.NewLine);
-                foreach (var item in Program.SeqDataFiles)
-                {
-                    dbg.Append(item.Value.Submitter_id);
-                    dbg.Append("\\t");
-                    dbg.Append(item.Value.ReadyForUpload);
-                    dbg.Append("\\t");
-                    dbg.Append(item.Value.DataFileLocation);
-                    dbg.Append("\\t");
-                    dbg.Append(item.Value.DataFileName);
-                }
-                string df = Path.Combine(Program.LogFileLocation, DebugLogFileName);
-                Console.WriteLine($"writing debug info to {DebugLogFileName} in directory {df}");
-                File.WriteAllText(df, dbg.ToString());
-            }
-
             return numFilesNotFound;
         }
 
@@ -82,15 +58,18 @@ namespace upload2gdc
             {
                 Console.WriteLine($"All {Program.SeqDataFiles.Count()} of the files to be uploaded were found" + Environment.NewLine);
 
-                Console.WriteLine("Press any key within 3 seconds to show list of file names");
-                bool writeDetails = Task.Factory.StartNew(() => Console.ReadKey()).Wait(TimeSpan.FromSeconds(3.0));
-
-                if (writeDetails)
+                if (filesOnly)
                 {
-                    Console.WriteLine(Environment.NewLine);
-                    Console.WriteLine("The following files *were found*:");
-                    foreach (var item in Program.SeqDataFiles)
-                        Console.WriteLine(item.Value.DataFileName);
+                    Console.WriteLine("Press any key within 3 seconds to show list of file names");
+                    bool writeDetails = Task.Factory.StartNew(() => Console.ReadKey()).Wait(TimeSpan.FromSeconds(3.0));
+
+                    if (writeDetails)
+                    {
+                        Console.WriteLine(Environment.NewLine);
+                        Console.WriteLine("The following files *were found*:");
+                        foreach (var item in Program.SeqDataFiles)
+                            Console.WriteLine(item.Value.DataFileName);
+                    }
                 }
                 return;
             }
@@ -346,7 +325,7 @@ namespace upload2gdc
             if (!Directory.Exists(homeDirLogs))
                 Directory.CreateDirectory(homeDirLogs);
 
-            string runSpecificLogDir = Path.Combine(homeDirLogs, ("gdc-" + DateTime.Now.ToString("yyyyMMddHHmmss")));
+            string runSpecificLogDir = Path.Combine(homeDirLogs, ("gdc-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")));
             Directory.CreateDirectory(runSpecificLogDir);
 
             return runSpecificLogDir;

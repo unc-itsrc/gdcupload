@@ -75,7 +75,7 @@ namespace upload2gdc
         public string DataTransferTool { get; set; }
 
         [Option("sim",
-            Default = true,
+            Default = false,
             Required = false,
             HelpText = "Use gdcsim.exe instead of the gdc data transfer tool?")]
         public bool UseSimulator { get; set; }
