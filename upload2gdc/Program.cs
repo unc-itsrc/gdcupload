@@ -103,14 +103,17 @@ namespace upload2gdc
             if (!Util.ProcessGDCMetaDataFile(GDCMetaDataFile))
                 return;     // end program
 
-            if (!Util.ProcessGDCUploadReport(UploadReportFileName))
+            if (OnlyCheck4DataFiles)
+            {
+                Util.ReportOnFilesReady(DataFilesBaseLocation);
                 return;     // end program
+            }
 
             int numFilesNotFound = Util.GoFindDataFiles(DataFilesBaseLocation);
 
-            Util.WriteResultsOfFileScanToScreen(OnlyCheck4DataFiles, numFilesNotFound);
+            Util.WriteResultsOfFileScanToScreen(numFilesNotFound);
 
-            if (OnlyCheck4DataFiles)
+            if (!Util.ProcessGDCUploadReport(UploadReportFileName))
                 return;     // end program
 
             if (numFilesNotFound == SeqDataFiles.Count() && !TestMode)

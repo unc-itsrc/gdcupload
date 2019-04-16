@@ -51,25 +51,82 @@ namespace upload2gdc
             return numFilesNotFound;
         }
 
-        public static void WriteResultsOfFileScanToScreen(bool filesOnly, int numFilesNotFound)
+        // this needs to be separate from GoFindDataFiles which requires an upload_report. 
+        // we need to be able to report on files without an upload report, which means no Program.SeqDataFiles
+        // so we report on SURdictionary instead which comes from the .json metadata file
+        public static void ReportOnFilesReady(string basePath)
+        {
+            int numFilesFound = 0;
+            int numFilesNotFound = 0;
+
+            StringBuilder filesFound = new StringBuilder();
+            StringBuilder filesNotFound = new StringBuilder();
+
+            foreach (var item in GDCmetadata.SURdictionary)
+            {
+                string TracSeqDeliveryFolderName = "";
+
+                string fileName = item.Value.file_name;
+
+                string runId = fileName.Substring(0, 35);  // first 35 chars is our run_id
+
+                if (fileName.IndexOf("bam") != -1)
+                    TracSeqDeliveryFolderName = "uBam";
+
+                else if (fileName.IndexOf("fastq") != -1)
+                    TracSeqDeliveryFolderName = "fastq";
+
+                string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName, runId);
+
+                if (File.Exists(Path.Combine(fileLocation, fileName)))
+                {
+                    filesFound.Append(item.Value.file_name + Environment.NewLine);
+                    numFilesFound++;
+                }
+                else
+                {
+                    filesNotFound.Append(item.Value.file_name + Environment.NewLine);
+                    numFilesNotFound++;
+                }
+            }
+
+            Console.Write(Environment.NewLine);
+            Console.WriteLine($"Out of {numFilesFound + numFilesNotFound} files in the json md file, {numFilesFound} were found, and {numFilesNotFound} were Not found.");
+            Console.Write(Environment.NewLine);
+
+            Console.WriteLine("Press any key within 4 seconds to show list of file names");
+            bool writeDetails = Task.Factory.StartNew(() => Console.ReadKey()).Wait(TimeSpan.FromSeconds(4.0));
+
+            if (writeDetails)
+            {
+                Console.WriteLine(Environment.NewLine);
+                Console.WriteLine("The following files *were found*:");
+                Console.WriteLine(filesFound.ToString());
+                Console.WriteLine("");
+                if (numFilesNotFound > 0)
+                    Console.WriteLine(filesNotFound.ToString());
+                else
+                    Console.WriteLine("There were NO files that were not found.");
+            }
+
+        }
+
+        public static void WriteResultsOfFileScanToScreen(int numFilesNotFound)
         {
             Console.Write(Environment.NewLine);
             if (numFilesNotFound == 0)
             {
                 Console.WriteLine($"All {Program.SeqDataFiles.Count()} of the files to be uploaded were found" + Environment.NewLine);
 
-                if (filesOnly)
-                {
-                    Console.WriteLine("Press any key within 3 seconds to show list of file names");
-                    bool writeDetails = Task.Factory.StartNew(() => Console.ReadKey()).Wait(TimeSpan.FromSeconds(3.0));
+                Console.WriteLine("Press any key within 3 seconds to show list of file names");
+                bool writeDetails = Task.Factory.StartNew(() => Console.ReadKey()).Wait(TimeSpan.FromSeconds(3.0));
 
-                    if (writeDetails)
-                    {
-                        Console.WriteLine(Environment.NewLine);
-                        Console.WriteLine("The following files *were found*:");
-                        foreach (var item in Program.SeqDataFiles)
-                            Console.WriteLine(item.Value.DataFileName);
-                    }
+                if (writeDetails)
+                {
+                    Console.WriteLine(Environment.NewLine);
+                    Console.WriteLine("The following files *were found*:");
+                    foreach (var item in Program.SeqDataFiles)
+                        Console.WriteLine(item.Value.DataFileName);
                 }
                 return;
             }
@@ -78,26 +135,23 @@ namespace upload2gdc
                 Console.WriteLine($"*** {numFilesNotFound} files not found out of an expected {Program.SeqDataFiles.Count()} files.");
                 Console.Write(Environment.NewLine);
 
-                if (filesOnly) // provide an id for each that failed. make easy to copy/paste into excel or email.
+                Console.WriteLine("The following files were NOT found: ");
+
+                foreach (var item in Program.SeqDataFiles)
+                    if (!item.Value.ReadyForUpload)
+                        Console.WriteLine(item.Value.DataFileName);
+
+                Console.WriteLine(Environment.NewLine);
+                Console.WriteLine("Press any key within 3 seconds to show files that *were found*");
+                bool writeDetails = Task.Factory.StartNew(() => Console.ReadKey()).Wait(TimeSpan.FromSeconds(3.0));
+
+                if (writeDetails)
                 {
-                    Console.WriteLine("The following files were NOT found: ");
-
-                    foreach (var item in Program.SeqDataFiles)
-                        if (!item.Value.ReadyForUpload)
-                            Console.WriteLine(item.Value.DataFileName);
-
                     Console.WriteLine(Environment.NewLine);
-                    Console.WriteLine("Press any key within 3 seconds to show files that *were found*");
-                    bool writeDetails = Task.Factory.StartNew(() => Console.ReadKey()).Wait(TimeSpan.FromSeconds(3.0));
-
-                    if (writeDetails)
-                    {
-                        Console.WriteLine(Environment.NewLine);
-                        Console.WriteLine("The following files *were found*:");
-                        foreach (var item in Program.SeqDataFiles)
-                            if (item.Value.ReadyForUpload)
-                                Console.WriteLine(item.Value.DataFileName);
-                    }
+                    Console.WriteLine("The following files *were found*:");
+                    foreach (var item in Program.SeqDataFiles)
+                        if (item.Value.ReadyForUpload)
+                            Console.WriteLine(item.Value.DataFileName);
                 }
             }
         }
