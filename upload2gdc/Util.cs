@@ -193,25 +193,6 @@ namespace upload2gdc
                 return false;
             }
 
-            // if we are only looking for data files, then we do not need the GDC Upload Rerpot (and likely do not have it)
-            // simply load Program.SeqDataFiles with all file names found in the GDC MetaData File.
-            if (Program.OnlyCheck4DataFiles)
-            {
-                int j = 0;
-                foreach (var item in GDCmetadata.SURdictionary)
-                {
-                    j++;
-                    SeqFileInfo newDataFile = new SeqFileInfo
-                    {
-                        DataFileName = item.Value.file_name,
-                        Submitter_id = item.Value.submitter_id
-                    };
-                    Program.SeqDataFiles.Add(j, newDataFile);
-                }
-                return true;
-            }
-
-
             int counter = 0;
             string line;
 
