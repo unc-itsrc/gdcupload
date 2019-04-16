@@ -133,6 +133,12 @@ namespace upload2gdc
 
         public static bool ProcessGDCUploadReport(string fileName)
         {
+            if (!File.Exists(fileName))
+            {
+                Console.WriteLine("File not found, Upload Report file from GDC: " + fileName);
+                return false;
+            }
+
             // if we are only looking for data files, then we do not need the GDC Upload Rerpot (and likely do not have it)
             // simply load Program.SeqDataFiles with all file names found in the GDC MetaData File.
             if (Program.OnlyCheck4DataFiles)
@@ -151,12 +157,6 @@ namespace upload2gdc
                 return true;
             }
 
-
-            if (!File.Exists(fileName))
-            {
-                Console.WriteLine("File not found, Upload Report file from GDC: " + fileName);
-                return false;
-            }
 
             int counter = 0;
             string line;
@@ -281,6 +281,13 @@ namespace upload2gdc
                     sb.Append(item);
                     sb.Append(Environment.NewLine);
                 }
+            }
+            else
+            {
+                sb.Append(Environment.NewLine);
+                sb.Append(Environment.NewLine);
+                sb.Append("--- There were no failures");
+
             }
 
             string resultsFileName = "logScan-" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".log";

@@ -66,9 +66,12 @@ namespace upload2gdc
         private static int NumberOfFilesToUpload;
         public static readonly bool TestMode = false;
 
+        private static DateTime ProgramStartTime;
+
 
         static void Main(string[] args)
         {
+            ProgramStartTime = DateTime.Now;
             string LogFileLocationFromConfig = "";
 
             Parser.Default.ParseArguments<Options>(args).WithParsed<Options>(o =>
@@ -105,16 +108,16 @@ namespace upload2gdc
 
             int numFilesNotFound = Util.GoFindDataFiles(DataFilesBaseLocation);
 
+            Util.WriteResultsOfFileScanToScreen(OnlyCheck4DataFiles, numFilesNotFound);
+
+            if (OnlyCheck4DataFiles)
+                return;     // end program
+
             if (numFilesNotFound == SeqDataFiles.Count() && !TestMode)
             {
                 Console.WriteLine($"None of the {SeqDataFiles.Count()} files to be uploaded were found in the staging location {DataFilesBaseLocation}");
                 return;     // end program
             }
-
-            Util.WriteResultsOfFileScanToScreen(OnlyCheck4DataFiles, numFilesNotFound);
-
-            if (OnlyCheck4DataFiles)
-                return;     // end program
 
             Console.WriteLine($"Log files will be written here: {LogFileLocation}");
 
@@ -128,8 +131,9 @@ namespace upload2gdc
 
             NumberOfFilesToUpload = SeqDataFilesQueue.Count();
             Console.WriteLine($" Number of items in Upload Report: {SeqDataFiles.Count()}");
-            Console.WriteLine($"             Number of work items: {SeqDataFilesQueue.Count()}");
+            Console.WriteLine($"             Number of work items: {SeqDataFilesQueue.Count()}" + Environment.NewLine);
             Console.WriteLine($"  Number of work items per thread: {(SeqDataFilesQueue.Count() / NumberOfThreads)}");
+            Console.WriteLine($"                       Start Time: {DateTime.Now.ToString("g")}" + Environment.NewLine);
 
 
             //  todo: show known state to user, allow to continue, cancel, or perhaps change NumberOfThreads
@@ -162,6 +166,9 @@ namespace upload2gdc
             Task.WaitAll(tasks);
 
             Util.CheckLogFiles(LogFileLocation);
+
+            TimeSpan elapsed = (DateTime.Now).Subtract(ProgramStartTime);
+            Console.WriteLine(Environment.NewLine + $"Elapsed time (minutes): {elapsed.TotalMinutes}");
 
         }
 
@@ -231,8 +238,6 @@ namespace upload2gdc
             sb.Append(SeqDataFile.DataFileSize);
             sb.Append("\t");
             sb.Append("partsize: " + uploadPartSize);
-            sb.Append(Environment.NewLine);
-
             sb.Append(Environment.NewLine);
             sb.Append("cmd = " + DataTransferTool + " " + cmdLineArgs);
 
