@@ -109,12 +109,12 @@ namespace upload2gdc
                 return;     // end program
             }
 
+            if (!Util.ProcessGDCUploadReport(UploadReportFileName))
+                return;     // end program
+
             int numFilesNotFound = Util.GoFindDataFiles(DataFilesBaseLocation);
 
             Util.WriteResultsOfFileScanToScreen(numFilesNotFound);
-
-            if (!Util.ProcessGDCUploadReport(UploadReportFileName))
-                return;     // end program
 
             if (numFilesNotFound == SeqDataFiles.Count() && !TestMode)
             {
@@ -171,8 +171,7 @@ namespace upload2gdc
             Util.CheckLogFiles(LogFileLocation);
 
             TimeSpan elapsed = (DateTime.Now).Subtract(ProgramStartTime);
-            Console.WriteLine(Environment.NewLine + $"Elapsed time (minutes): {elapsed.TotalMinutes}");
-
+            Console.WriteLine(Environment.NewLine + "Elapsed time: {0:c}", elapsed.TotalMinutes);
         }
 
 
