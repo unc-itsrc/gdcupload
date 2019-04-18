@@ -12,4 +12,4 @@ dotnet upload2gdc.dll --ur ~/gdc-upload-report.tsv --md ~/gdc-metadata-file.json
 
 
 <p>To see if sequence data files are in place based on the json file generated via the TracSeq API:<br>
-dotnet upload2gdc.dll --md 1test-md.json --filesonly</p>
+dotnet upload2gdc.dll --md ~/gdc-metadata-file.json --filesonly --files /proj/seq/tracseq/delivery</p>
