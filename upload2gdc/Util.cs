@@ -32,7 +32,8 @@ namespace upload2gdc
                 else if (newDataFile.DataFileName.IndexOf("fastq") != -1)
                     TracSeqDeliveryFolderName = "fastq";
 
-                string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName, runId);
+                // string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName, runId);
+                string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName); // runId is not currently in the path
 
                 if (File.Exists(Path.Combine(fileLocation, newDataFile.DataFileName)))
                 {
@@ -76,7 +77,8 @@ namespace upload2gdc
                 else if (fileName.IndexOf("fastq") != -1)
                     TracSeqDeliveryFolderName = "fastq";
 
-                string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName, runId);
+                //string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName, runId);
+                string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName);  // runId is not currently in the path
 
                 if (File.Exists(Path.Combine(fileLocation, fileName)))
                 {
