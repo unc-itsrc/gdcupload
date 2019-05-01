@@ -39,10 +39,10 @@ namespace upload2gdc
                     newDataFile.DataFileLocation = fileLocation;
                     newDataFile.ReadyForUpload = true;
                     Program.SeqDataFiles[key] = newDataFile;
-                    Console.WriteLine($"Not found: {Path.Combine(fileLocation, newDataFile.DataFileName)}");
                 }
                 else
                 {
+                    Console.WriteLine($"Not found: {Path.Combine(fileLocation, newDataFile.DataFileName)}");
                     numFilesNotFound++;
                 }
             }
