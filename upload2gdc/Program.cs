@@ -127,10 +127,8 @@ namespace upload2gdc
             // Load the work queue with the dictionary key of each data file in the 
             // dictionary where we have successfully located the file on disk
             foreach (KeyValuePair<int, SeqFileInfo> entry in SeqDataFiles)
-            {
                 if (entry.Value.ReadyForUpload)
                     SeqDataFilesQueue.Enqueue(entry.Key);
-            }
 
             NumberOfFilesToUpload = SeqDataFilesQueue.Count();
             Console.WriteLine($" Number of items in Upload Report: {SeqDataFiles.Count()}");
@@ -139,7 +137,7 @@ namespace upload2gdc
             Console.WriteLine($"                       Start Time: {DateTime.Now.ToString("g")}" + Environment.NewLine);
 
 
-            //  todo: show known state to user, allow to continue, cancel, or perhaps change NumberOfThreads
+            //  todo: allow to continue, cancel, or perhaps change NumberOfThreads
 
 
             Task[] tasks = new Task[NumberOfThreads];
@@ -338,6 +336,7 @@ namespace upload2gdc
                     sb.Append(" of ");
                     sb.Append(NumRetries.ToString());
                     sb.Append(Environment.NewLine);
+                    Console.WriteLine($"Re-queued item {workId}");
                 }
             }
 

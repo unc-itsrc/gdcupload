@@ -15,9 +15,7 @@ namespace upload2gdc
             // copy the keys to a List and iterate over that instead
             List<int> ListOfKeys = new List<int>();
             foreach (KeyValuePair<int, SeqFileInfo> dataFile in Program.SeqDataFiles)
-            {
                 ListOfKeys.Add(dataFile.Key);
-            }
 
             int numFilesNotFound = 0;
 
@@ -41,6 +39,7 @@ namespace upload2gdc
                     newDataFile.DataFileLocation = fileLocation;
                     newDataFile.ReadyForUpload = true;
                     Program.SeqDataFiles[key] = newDataFile;
+                    Console.WriteLine($"Not found: {Path.Combine(fileLocation, newDataFile.DataFileName)}");
                 }
                 else
                 {
