@@ -44,8 +44,8 @@ namespace upload2gdc
                 }
                 else
                 {
-                    //Console.WriteLine($"Not found: {Path.Combine(fileLocation, newDataFile.DataFileName)}");
                     numFilesNotFound++;
+                    //Console.WriteLine($"Not found: {Path.Combine(fileLocation, newDataFile.DataFileName)}");
                 }
             }
 
@@ -84,13 +84,13 @@ namespace upload2gdc
                 {
                     filesFound.Append(item.Value.file_name + Environment.NewLine);
                     numFilesFound++;
-                    Console.WriteLine($"Found: {Path.Combine(fileLocation, fileName)}");
+                    //Console.WriteLine($"Found: {Path.Combine(fileLocation, fileName)}");
                 }
                 else
                 {
-                    Console.WriteLine($"Not found: {Path.Combine(fileLocation, fileName)}");
                     filesNotFound.Append(item.Value.file_name + Environment.NewLine);
                     numFilesNotFound++;
+                    //Console.WriteLine($"Not found: {Path.Combine(fileLocation, fileName)}");
                 }
             }
 
