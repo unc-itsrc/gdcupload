@@ -63,6 +63,9 @@ namespace upload2gdc
         public static bool OnlyCheck4DataFiles;
         private static string DataFilesBaseLocation;
 
+        public static string SkipFileUUIDs;
+        public static List<string> SkipUUIDs = new List<string>();
+
         private static int NumberOfFilesToUpload;
         public static readonly bool TestMode = false;
 
@@ -87,6 +90,7 @@ namespace upload2gdc
                     OnlyScanLogFiles = o.OnlyScanLogFiles;
                     LogFileLocationFromConfig = o.LogFileLocation;
                     OnlyCheck4DataFiles = o.OnlyCheck4DataFiles;
+                    SkipFileUUIDs = o.SkipFile;
                 });
 
             if (!OnlyCheck4DataFiles) // no log files to be written when only checking for data files
@@ -123,11 +127,24 @@ namespace upload2gdc
 
             Console.WriteLine($"Log files will be written here: {LogFileLocation}");
 
+            if (SkipFileUUIDs != "")
+            {
+                if (File.Exists(SkipFileUUIDs))
+                {
+                    Console.WriteLine($"Using SkipFile: {SkipFileUUIDs}");
+                    SkipUUIDs = File.ReadAllLines(SkipFileUUIDs).ToList();
+                }
+            }
+
+
             // Load the work queue with the dictionary key of each data file in the 
             // dictionary where we have successfully located the file on disk
             foreach (KeyValuePair<int, SeqFileInfo> entry in SeqDataFiles)
                 if (entry.Value.ReadyForUpload)
-                    SeqDataFilesQueue.Enqueue(entry.Key);
+                    if (SkipUUIDs.Contains(entry.Value.Id))
+                        Console.WriteLine($"skipping {entry.Value.Id}");
+                    else
+                        SeqDataFilesQueue.Enqueue(entry.Key);
 
             NumberOfFilesToUpload = SeqDataFilesQueue.Count();
             Console.WriteLine($" Number of items in Upload Report: {SeqDataFiles.Count()}");

@@ -80,6 +80,11 @@ namespace upload2gdc
             HelpText = "Use gdcsim.exe instead of the gdc data transfer tool?")]
         public bool UseSimulator { get; set; }
 
+        [Option("skip",
+            Default = "",   
+            Required = false,
+            HelpText = "Path to file containing UUID's to be skipped.")]
+        public string SkipFile { get; set; }
 
     }
 }
