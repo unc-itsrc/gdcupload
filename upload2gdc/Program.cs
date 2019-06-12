@@ -89,7 +89,6 @@ namespace upload2gdc
                     OnlyCheck4DataFiles = o.OnlyCheck4DataFiles;
                 });
 
-
             if (!OnlyCheck4DataFiles) // no log files to be written when only checking for data files
                 LogFileLocation = Util.SetLocation4LogFiles(LogFileLocationFromConfig);
 
