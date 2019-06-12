@@ -26,14 +26,20 @@ namespace upload2gdc
                 SeqFileInfo newDataFile = Program.SeqDataFiles[key];
                 string runId = newDataFile.Submitter_id.Substring(0, 35);  // first 35 chars of the submitter_id is our run_id
 
+                string fileLocation = "";
+
                 if (newDataFile.DataFileName.IndexOf("bam") != -1)
+                {
                     TracSeqDeliveryFolderName = "uBam";
+                    fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName, runId);
+                }
 
                 else if (newDataFile.DataFileName.IndexOf("fastq") != -1)
+                {
                     TracSeqDeliveryFolderName = "fastq";
+                    fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName); // runId is not currently in the path
+                }
 
-                // string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName, runId);
-                string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName); // runId is not currently in the path
 
                 if (File.Exists(Path.Combine(fileLocation, newDataFile.DataFileName)))
                 {
