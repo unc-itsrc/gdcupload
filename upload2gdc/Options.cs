@@ -86,5 +86,30 @@ namespace upload2gdc
             HelpText = "Path to file containing UUID's to be skipped.")]
         public string SkipFile { get; set; }
 
+        [Option("mdgen",
+            Default = "",
+            Required = false,
+            HelpText = "Path to file that is list of items cleared for upload, for which GDC metadata will be generated.")]
+        public string MDGen { get; set; }
+
+        [Option("mdgendev",
+            Default = false,
+            Required = false,
+            HelpText = "Use DEV server instead of prod?")]
+        public bool MDGenDevServer { get; set; }
+
+        [Option("mdgentype",
+            Default = "",
+            Required = false,
+            HelpText = "rnaseq or smallrna")]
+        public string MDGenType { get; set; }
+
+        [Option("mdgenskiplist",
+            Default = "",
+            Required = false,
+            HelpText = "list of samples to be skipped")]
+        public string MDGenSkipList { get; set; }
+
+
     }
 }

@@ -77,14 +77,19 @@ namespace upload2gdc
 
                 string runId = fileName.Substring(0, 35);  // first 35 chars is our run_id
 
+                string fileLocation = "";
                 if (fileName.IndexOf("bam") != -1)
+                {
                     TracSeqDeliveryFolderName = "uBam";
+                    fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName, runId);
+                }
 
                 else if (fileName.IndexOf("fastq") != -1)
+                {
                     TracSeqDeliveryFolderName = "fastq";
+                    fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName);  // runId is not currently in the path
+                }
 
-                //string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName, runId);
-                string fileLocation = Path.Combine(basePath, TracSeqDeliveryFolderName);  // runId is not currently in the path
 
                 if (File.Exists(Path.Combine(fileLocation, fileName)))
                 {

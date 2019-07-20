@@ -63,6 +63,12 @@ namespace upload2gdc
         public static bool OnlyCheck4DataFiles;
         private static string DataFilesBaseLocation;
 
+        private static string GenerateGDCMetadata4ThisFile;
+        private static bool GenerateGDCMetadataDevServer;
+        private static string GenerateGDCMetadataExperimentType;
+        private static string GenerateGDCMetadataSkipList;
+
+
         public static string SkipFileUUIDs;
         public static List<string> SkipUUIDs = new List<string>();
 
@@ -91,6 +97,10 @@ namespace upload2gdc
                     LogFileLocationFromConfig = o.LogFileLocation;
                     OnlyCheck4DataFiles = o.OnlyCheck4DataFiles;
                     SkipFileUUIDs = o.SkipFile;
+                    GenerateGDCMetadata4ThisFile = o.MDGen;
+                    GenerateGDCMetadataDevServer = o.MDGenDevServer;
+                    GenerateGDCMetadataExperimentType = o.MDGenType;
+                    GenerateGDCMetadataSkipList = o.MDGenSkipList;
                 });
 
             if (!OnlyCheck4DataFiles) // no log files to be written when only checking for data files
@@ -102,6 +112,13 @@ namespace upload2gdc
                 Util.CheckLogFiles(LogFileLocationFromConfig);
                 return;     // end program
             }
+
+            if (GenerateGDCMetadata4ThisFile != "")
+            {
+                GenerateMetadata.GenGDCMD(GenerateGDCMetadata4ThisFile, GenerateGDCMetadataDevServer, GenerateGDCMetadataExperimentType, GenerateGDCMetadataSkipList);
+                return;     // end program, nothing else to do when generating GDC metadata
+            }
+
 
             if (!Util.ProcessGDCMetaDataFile(GDCMetaDataFile))
                 return;     // end program
