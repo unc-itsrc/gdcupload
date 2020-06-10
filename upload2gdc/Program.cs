@@ -67,6 +67,7 @@ namespace upload2gdc
         private static bool GenerateGDCMetadataDevServer;
         private static string GenerateGDCMetadataExperimentType;
         private static string GenerateGDCMetadataSkipList;
+        private static string MultiPartMethod;
 
 
         public static string SkipFileUUIDs;
@@ -101,6 +102,7 @@ namespace upload2gdc
                     GenerateGDCMetadataDevServer = o.MDGenDevServer;
                     GenerateGDCMetadataExperimentType = o.MDGenType;
                     GenerateGDCMetadataSkipList = o.MDGenSkipList;
+                    MultiPartMethod = o.MultiPartUploads;
                 });
 
             if (!OnlyCheck4DataFiles) // no log files to be written when only checking for data files
@@ -153,6 +155,12 @@ namespace upload2gdc
                 }
             }
 
+            // validate multipartmethod commandline parameter
+            if (MultiPartMethod != "yes" && MultiPartMethod != "no" && MultiPartMethod != "program")
+            {
+                Console.WriteLine($"  Invalid option: \"--multipart {MultiPartMethod}\"{Environment.NewLine}  Must be one of: yes, no, program");
+                return;
+            }
 
             // Load the work queue with the dictionary key of each data file in the 
             // dictionary where we have successfully located the file on disk
@@ -235,18 +243,33 @@ namespace upload2gdc
             //else
             //  cmdLineArgs = ("upload -t " + GDCTokenFile + " " + SeqDataFile.Id);
 
-            // gdc-client reverts to a "simple mode" when the file size is less than 1GB, however
-            // it does not exit cleanly in this mode. So force all xfers to be multi-part by setting 
-            // the upload-part-size to a value smaller than the file size.
+
+
+            // v1.4 version of gdc-client uses single chunck upload when the file size is less than 1GB, however it does not exit cleanly in this mode. So force all xfers to be multi-part by setting 
+            // if using v1.4 of gdc-client, user should set "--multipart yes" (default command line switch)
+            // if using v1.5 of gdc-client, user should set "--multipart no"
+            // by using "--multipart program", it does not force either outcome, and allows gdc-client to decide
+            
             string uploadPartSize = ""; 
-            long defaultPartSize = 1000000000;
-            if (SeqDataFile.DataFileSize < defaultPartSize)
+            long defaultPartSize = 1000000000; // this is the default for v1.4 of gdc-client; unsure about v1.5, going to assume it's the same
+
+            if (MultiPartMethod == "yes")
             {
-                long newPartSize = (long)(SeqDataFile.DataFileSize * 0.8);
-                uploadPartSize = " --upload-part-size " + newPartSize.ToString();
+                if (SeqDataFile.DataFileSize < defaultPartSize)
+                {
+                    long newPartSize = (long)(SeqDataFile.DataFileSize * 0.8);  // force multipart upload
+                    uploadPartSize = $"--upload-part-size {newPartSize}";
+                }
+            }
+            else if (MultiPartMethod == "no")
+            {
+                long newPartSize = (long)(SeqDataFile.DataFileSize * 1.2);      // force single chunk upload
+                uploadPartSize = $"--upload-part-size {newPartSize}";
             }
 
-            cmdLineArgs = ("upload -t " + GDCTokenFile + " " + SeqDataFile.Id + uploadPartSize);
+
+            // cmdLineArgs = ("upload -t " + GDCTokenFile + " " + SeqDataFile.Id + uploadPartSize);
+            cmdLineArgs = $"upload -t {GDCTokenFile} {SeqDataFile.Id} {uploadPartSize}";
 
             sb.Append("Begin:" + "\t");
             sb.Append(startTime + "\t");

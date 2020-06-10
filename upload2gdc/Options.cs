@@ -71,8 +71,17 @@ namespace upload2gdc
         [Option("dtt",
             Default = "gdc-client",   // this is the setting for rc-dm2.its.unc.edu
             Required = false,
-            HelpText = "Path to store the GDC data transfer tool executable.")]
+            HelpText = "Path to store the GDC data transfer tool executable. See also multipart option re which version of gdc-client being used")]
         public string DataTransferTool { get; set; }
+
+        // v1.4 of gdc-client has issue of not exiting cleanly for single chunk uploads, so need to be able to force multipart for all files
+        // v1.5 of gdc-client fails in multipart, so GDC guidance is to force all uploads in single part
+        [Option("multipart",
+            Default = "yes",   
+            Required = false,
+            HelpText = "For uploads, force multipart (yes), force single chunk (no), or allow for dtt default behavior (program).")]
+        public string MultiPartUploads { get; set; }
+
 
         [Option("sim",
             Default = false,
